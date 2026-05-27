@@ -6,6 +6,8 @@ out/*
 
 # External source checkouts
 third_party/lk2nd/
+third_party/pmaports/
+third_party/pmbootstrap/
 third_party/linux/
 
 # Python
