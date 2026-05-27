@@ -1,69 +1,69 @@
-# Source Index
+# 源码索引
 
-This document records the source trees that are useful before we have real hardware.
+本文记录无真机阶段最有用的上游源码。
 
-## Build Host Workspace
+## 编译机工作区
 
 ```text
 /home/jack/work/msm8916-standard-linux/third_party/
 ```
 
-| Source | Local path | Upstream | State |
+| 源码 | 本地路径 | 上游 | 状态 |
 | --- | --- | --- | --- |
-| lk2nd | `lk2nd` | `https://github.com/msm8916-mainline/lk2nd.git` | shallow git clone, `main`, `ce7fc78` |
-| pmaports | `pmaports` | `https://gitlab.postmarketos.org/postmarketOS/pmaports.git` | shallow git clone, `main`, `02ad959` |
-| pmbootstrap | `pmbootstrap` | `https://gitlab.postmarketos.org/postmarketOS/pmbootstrap` | `main` archive, no git history |
+| lk2nd | `lk2nd` | `https://github.com/msm8916-mainline/lk2nd.git` | 浅克隆，`main`，`ce7fc78` |
+| pmaports | `pmaports` | `https://gitlab.postmarketos.org/postmarketOS/pmaports.git` | 浅克隆，`main`，`02ad959` |
+| pmbootstrap | `pmbootstrap` | `https://gitlab.postmarketos.org/postmarketOS/pmbootstrap` | `main` archive，无 git 历史 |
 
-The Linux kernel tree has not been cloned yet. The pmaports package currently points at `https://github.com/msm8916-mainline/linux` with tags like `v6.12.1-msm8916`; clone this only after we choose the first concrete target.
+Linux kernel 还没有拉取。pmaports 里的 MSM8916 kernel 包当前指向 `https://github.com/msm8916-mainline/linux`，tag 形如 `v6.12.1-msm8916`。等确定第一个真机目标和构建策略后再拉更合适。
 
-## lk2nd MSM8916 Map
+## lk2nd MSM8916 结构
 
-Important paths:
+关键路径：
 
-| Purpose | Path |
+| 用途 | 路径 |
 | --- | --- |
-| MSM8916 DTS directory | `lk2nd/device/dts/msm8916/` |
-| MSM8916 DTS build list | `lk2nd/device/dts/msm8916/rules.mk` |
+| MSM8916 DTS 目录 | `lk2nd/device/dts/msm8916/` |
+| MSM8916 DTS 构建列表 | `lk2nd/device/dts/msm8916/rules.mk` |
 | lk2nd MSM8916 project | `project/lk2nd-msm8916.mk` |
 | lk1st MSM8916 project | `project/lk1st-msm8916.mk` |
-| MSM8916 platform code | `platform/msm8916/` |
-| MSM8916 target code | `target/msm8916/` |
+| MSM8916 platform 代码 | `platform/msm8916/` |
+| MSM8916 target 代码 | `target/msm8916/` |
 
-Modem-stick candidates already present upstream:
+上游已包含的 4G stick 候选：
 
-| DTS | Model / compatible | Match data | Notes |
+| DTS | 型号 / compatible | 匹配信息 | 说明 |
 | --- | --- | --- | --- |
-| `msm8916-512mb-mtp.dts` | `Unknown 4G Modem Stick`, `zhihe,various` | `qcom,msm-id = <QCOM_ID_MSM8916 0>`, `qcom,board-id = <QCOM_BOARD_ID_MTP 0x100>` | Generic bucket for UFI_001B/C, UFI003_MB_V02, MF601. Upstream says automatic distinction is difficult because cmdline is shared. |
-| `msm8916-512mb-mtp.dts` | `ufi-001c/ufi-001b 4G Modem Stick`, `thwc,ufi001c` | same bundle DTB | Intended for `lk1st` with `LK2ND_COMPATIBLE="thwc,ufi001c"`. |
-| `msm8916-512mb-mtp.dts` | `UFI003_MB_V02` | same generic `zhihe,various` bucket | Mentioned in upstream comments, but current lk2nd does not expose a separate compatible node for it. |
-| `msm8916-512mb-mtp.dts` | `MF601` | same generic `zhihe,various` bucket | Mentioned in upstream comments; lk2nd lists reset/WPS key GPIOs for a mis-detected MF601 case. |
-| `msm8916-512mb-mtp.dts` | `uz801 v3.0 4G Modem Stick`, `yiming,uz801-v3` | same bundle DTB plus cmdline match | Upstream notes stock aboot may be incompatible with qhypstub/db410c TZ firmware; prefer lk1st if possible. |
-| `msm8916-512mb-mtp.dts` | `JZ0145 v33 4G Modem Stick`, `xiaoxun,jz0145-v33` | same bundle DTB plus cmdline match | Has an EDL key on GPIO 37 in lk2nd metadata. |
-| `msm8916-512mb-qrd-skuh.dts` | `uf896 4G Modem Stick`, `thwc,uf896` | `qcom,msm-id = <QCOM_ID_MSM8916 0>`, multiple QRD SKUH board IDs with subtype `0x100`/`0x104` | Intended for `lk1st` with `LK2ND_COMPATIBLE="thwc,uf896"`. |
+| `msm8916-512mb-mtp.dts` | `Unknown 4G Modem Stick`, `zhihe,various` | `qcom,msm-id = <QCOM_ID_MSM8916 0>`，`qcom,board-id = <QCOM_BOARD_ID_MTP 0x100>` | UFI_001B/C、UFI003_MB_V02、MF601 的通用桶。上游说明这些设备 cmdline 相同，lk2nd 很难自动区分。 |
+| `msm8916-512mb-mtp.dts` | `ufi-001c/ufi-001b 4G Modem Stick`, `thwc,ufi001c` | 同一个 bundle DTB | 适合 lk1st 固定 `LK2ND_COMPATIBLE="thwc,ufi001c"`。 |
+| `msm8916-512mb-mtp.dts` | `UFI003_MB_V02` | 同一个 `zhihe,various` 通用桶 | 上游注释提到该板，但当前 lk2nd 没有单独 compatible 节点。 |
+| `msm8916-512mb-mtp.dts` | `MF601` | 同一个 `zhihe,various` 通用桶 | 上游注释提到该板，并给误识别 MF601 的 reset/WPS GPIO 留了信息。 |
+| `msm8916-512mb-mtp.dts` | `uz801 v3.0 4G Modem Stick`, `yiming,uz801-v3` | 同一个 bundle DTB，加 cmdline 匹配 | 上游说明 stock aboot 可能和 qhypstub/db410c TZ firmware 不兼容，尽量使用 lk1st。 |
+| `msm8916-512mb-mtp.dts` | `JZ0145 v33 4G Modem Stick`, `xiaoxun,jz0145-v33` | 同一个 bundle DTB，加 cmdline 匹配 | lk2nd 元数据中记录 GPIO 37 可作为 EDL 键。 |
+| `msm8916-512mb-qrd-skuh.dts` | `uf896 4G Modem Stick`, `thwc,uf896` | `qcom,msm-id = <QCOM_ID_MSM8916 0>`，多个 QRD SKUH board ID，子类型 `0x100`/`0x104` | 适合 lk1st 固定 `LK2ND_COMPATIBLE="thwc,uf896"`。 |
 
-Upstream `rules.mk` already includes both `msm8916-512mb-mtp.dtb` and `msm8916-512mb-qrd-skuh.dtb` in `QCDTBS`, so the first task with real firmware is likely identification and selection, not necessarily writing a new lk2nd DTS from scratch.
+上游 `rules.mk` 已经把 `msm8916-512mb-mtp.dtb` 和 `msm8916-512mb-qrd-skuh.dtb` 放进 `QCDTBS`。所以拿到真机后的第一步大概率是识别和选择已有适配，而不是立刻新增 DTS。
 
-## pmaports MSM8916 Map
+## pmaports MSM8916 结构
 
-Important paths:
+关键路径：
 
-| Purpose | Path |
+| 用途 | 路径 |
 | --- | --- |
-| Generic MSM8916 device package | `device/testing/device-qcom-msm8916/` |
-| MSM8916 kernel package | `device/testing/linux-postmarketos-qcom-msm8916/` |
-| MSM8916 common SoC package | `device/testing/soc-qcom-msm8916/` |
+| 通用 MSM8916 设备包 | `device/testing/device-qcom-msm8916/` |
+| MSM8916 kernel 包 | `device/testing/linux-postmarketos-qcom-msm8916/` |
+| MSM8916 通用 SoC 包 | `device/testing/soc-qcom-msm8916/` |
 
-Observed package details:
+已观察到的包信息：
 
-| Package | Key facts |
+| 包 | 关键信息 |
 | --- | --- |
-| `device-qcom-msm8916` | Generic package for MSM8916/MSM8939 devices, `aarch64`, fastboot flash method, extlinux support for lk2nd, `deviceinfo_dtb_extlinux="qcom/msm8*16-* qcom/msm8*39-* qcom/apq8016-* apq8039-*"`, `deviceinfo_partition_type="msdos"` because lk2nd does not support GPT for subpartitions/SD cards yet. |
-| `linux-postmarketos-qcom-msm8916` | Kernel package uses `https://github.com/msm8916-mainline/linux`, package version `6.12.1`, tag pattern `v6.12.1-msm8916`, supports `aarch64` and `armv7`. |
-| `soc-qcom-msm8916` | Common SoC package includes Adreno A306 quirks, UCM audio packaging, remoteproc/modem support, q6voiced config, and WirePlumber S16_LE workaround. |
+| `device-qcom-msm8916` | MSM8916/MSM8939 通用设备包，`aarch64`，fastboot 刷写方式，支持 lk2nd extlinux，`deviceinfo_dtb_extlinux="qcom/msm8*16-* qcom/msm8*39-* qcom/apq8016-* apq8039-*"`, `deviceinfo_partition_type="msdos"`，原因是 lk2nd 还不支持 SD 卡/子分区 GPT。 |
+| `linux-postmarketos-qcom-msm8916` | kernel 包使用 `https://github.com/msm8916-mainline/linux`，版本 `6.12.1`，tag 形如 `v6.12.1-msm8916`，支持 `aarch64` 和 `armv7`。 |
+| `soc-qcom-msm8916` | 通用 SoC 包包含 Adreno A306 workaround、UCM 音频、remoteproc/modem、q6voiced 配置和 WirePlumber S16_LE workaround。 |
 
-## No-Hardware Priorities
+## 无真机阶段优先级
 
-1. Keep expanding this source index as we inspect upstream.
-2. Add device metadata templates for each lk2nd modem-stick candidate.
-3. Build scripts that can accept a vendor `boot.img` later and extract `qcom,*-id`.
-4. Prepare a checklist for the first real device: photos, USB IDs, boot modes, partition backup, DT extraction, lk2nd selection, postmarketOS package choice.
+1. 继续扩展源码索引。
+2. 为每个 lk2nd 4G stick 候选补齐设备元数据。
+3. 维护能处理 vendor `boot.img` 的提取脚本。
+4. 准备第一台真机 checklist：照片、USB ID、启动模式、分区备份、DT 提取、lk2nd 选择、postmarketOS 设备包选择。

@@ -1,30 +1,31 @@
-# MSM8916 PostmarketOS / Standard Linux Workbench
+# MSM8916 PostmarketOS / 标准 Linux 工作台
 
-This repository tracks bring-up work for MSM8916 OpenStick/UFI-style devices before hardware is available.
+这个仓库用于整理 MSM8916 OpenStick/UFI 类设备的移植准备工作。当前还没有真机，所以重点是把源码、候选板型、构建产物和刷写风险先梳理清楚。
 
-The immediate goal is to reduce trial-and-error once a real device or vendor firmware arrives:
+当前目标是减少拿到真机或原厂固件后的试错：
 
-1. index relevant upstream source trees;
-2. map known MSM8916 modem-stick candidates;
-3. prepare firmware extraction and ID verification workflows;
-4. document lk2nd and postmarketOS integration points.
+1. 索引相关上游源码；
+2. 整理已知 MSM8916 4G stick 候选板型；
+3. 准备固件提取和 Qualcomm ID 校验流程；
+4. 记录 lk2nd 和 postmarketOS 的接入点。
 
-## Current State
+## 当前状态
 
-- Source checkouts live on the build host under `/home/jack/work/msm8916-standard-linux/third_party/`.
-- `lk2nd`, `pmaports`, and `pmbootstrap` have been fetched for reference.
-- No target hardware has been verified yet.
-- No flashing commands should be treated as safe for a real device until its original firmware and board IDs are confirmed.
+- 编译机源码位于 `/home/jack/work/msm8916-standard-linux/third_party/`。
+- 已拉取 `lk2nd`、`pmaports`、`pmbootstrap` 作为参考。
+- 已构建 MSM8916 通用 lk2nd 镜像和多个 lk1st 板型镜像。
+- 还没有真机验证。
+- 在确认原厂固件、board ID、分区布局和救砖路径前，任何刷机命令都不能视为安全。
 
-## Key Docs
+## 主要文档
 
-- [Source Index](docs/source-index.md)
-- [Device Matrix](docs/device-matrix.md)
-- [Build lk2nd](docs/build-lk2nd.md)
-- [Flashing lk2nd](docs/flashing-lk2nd.md) / [刷写 lk2nd](docs/flashing-lk2nd.zh-CN.md)
-- [Third-Party Sources](third_party/README.md)
-- [Design Spec](docs/superpowers/specs/2026-05-27-msm8916-standard-linux-porting-design.md)
+- [源码索引](docs/source-index.md)
+- [设备矩阵](docs/device-matrix.md)
+- [构建 lk2nd](docs/build-lk2nd.md)
+- [刷写 lk2nd](docs/flashing-lk2nd.zh-CN.md) / [Flashing lk2nd](docs/flashing-lk2nd.md)
+- [第三方源码](third_party/README.md)
+- [设计规格](docs/superpowers/specs/2026-05-27-msm8916-standard-linux-porting-design.md)
 
-## Safety Rule
+## 安全原则
 
-Similar MSM8916 dongles are not automatically interchangeable. A shell label or listing title is not enough. Treat a device as unknown until `qcom,msm-id`, `qcom,board-id`, boot mode, storage layout, and recovery path are verified from firmware or hardware evidence.
+外壳相似的 MSM8916 设备不一定可以互刷。商品名、外壳标签或卖家描述都不够。必须先从固件或硬件证据确认 `qcom,msm-id`、`qcom,board-id`、启动模式、存储分区和恢复方式。

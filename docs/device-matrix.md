@@ -1,45 +1,45 @@
-# Device Matrix
+# 设备矩阵
 
-This matrix tracks candidates before hardware arrives. Values here are source-derived leads, not proof that a physical device matches.
+本文记录真机到手前的候选设备。这里的值是源码线索，不等于某台实体设备已经匹配。
 
-## Status Values
+## 状态定义
 
-| Status | Meaning |
+| 状态 | 含义 |
 | --- | --- |
-| `source-candidate` | Exists in upstream source or a trusted reference, but no local hardware/firmware proof yet. |
-| `firmware-identified` | Vendor firmware was inspected and IDs were extracted. |
-| `hardware-identified` | Board markings, USB IDs, boot mode, and recovery path were recorded from a real device. |
-| `lk2nd-selected` | lk2nd/lk1st selects the intended device node. |
-| `linux-boots` | Standard Linux reaches userspace. |
+| `source-candidate` | 上游源码或可信参考中存在，但本地还没有真机/固件证明。 |
+| `firmware-identified` | 已检查 vendor 固件并提取 ID。 |
+| `hardware-identified` | 已记录真机板号、USB ID、启动模式和恢复路径。 |
+| `lk2nd-selected` | lk2nd/lk1st 已选择预期设备节点。 |
+| `linux-boots` | 标准 Linux 能进入 userspace。 |
 
-## MSM8916 Modem-Stick Candidates
+## MSM8916 4G Stick 候选
 
-| Candidate | lk2nd compatible | lk2nd DTS | Source-derived match | Current status | First verification needed |
+| 候选 | lk2nd compatible | lk2nd DTS | 源码线索 | 当前状态 | 第一项验证 |
 | --- | --- | --- | --- | --- | --- |
-| Unknown 4G modem stick group: UFI_001B/C, UFI003_MB_V02, MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | `QCOM_ID_MSM8916 0`, `QCOM_BOARD_ID_MTP 0x100`, shared cmdline panel match | `source-candidate` | Extract vendor DTS and confirm this board ID/cmdline. |
-| UFI-001C / UFI-001B | `thwc,ufi001c` | `msm8916-512mb-mtp.dts` | Same bundle DTB as above; upstream recommends lk1st fixed compatible | `source-candidate` | Confirm board label, original boot image IDs, EDL key behavior on GPIO 37. |
-| UFI003_MB_V02 | `zhihe,various` | `msm8916-512mb-mtp.dts` | Same generic MTP 512MB bucket as UFI_001B/C and MF601 | `source-candidate` | Confirm board marking and whether a fixed compatible exists outside current lk2nd. |
-| MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | Same generic MTP 512MB bucket; lk2nd lists reset GPIO 34 and optional WPS GPIO 107 for mis-detected MF601 | `source-candidate` | Confirm board marking, keys, and original firmware IDs. |
-| UZ801 v3.0 | `yiming,uz801-v3` | `msm8916-512mb-mtp.dts` | Same bundle DTB plus DSI JDI 1080p cmdline match | `source-candidate` | Confirm panel cmdline and whether stock aboot has qhypstub/TZ incompatibility. |
-| JZ0145 v33 | `xiaoxun,jz0145-v33` | `msm8916-512mb-mtp.dts` | Same bundle DTB plus DSI ST7796S 320p cmdline match | `source-candidate` | Confirm panel cmdline and EDL key behavior on GPIO 37. |
-| UF896 | `thwc,uf896` | `msm8916-512mb-qrd-skuh.dts` | `QCOM_ID_MSM8916 0`, QRD SKUH board IDs with `0x100`/`0x104` variants | `source-candidate` | Extract vendor DTS and choose the exact QRD board tuple. |
+| Unknown 4G modem stick group: UFI_001B/C, UFI003_MB_V02, MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | `QCOM_ID_MSM8916 0`，`QCOM_BOARD_ID_MTP 0x100`，共享 cmdline panel 匹配 | `source-candidate` | 提取 vendor DTS，确认 board ID/cmdline。 |
+| UFI-001C / UFI-001B | `thwc,ufi001c` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB；上游建议 lk1st 固定 compatible | `source-candidate` | 确认板号、原厂 boot image IDs、GPIO 37 EDL 键行为。 |
+| UFI003_MB_V02 | `zhihe,various` | `msm8916-512mb-mtp.dts` | 与 UFI_001B/C、MF601 同属 512MB MTP 通用桶 | `source-candidate` | 确认板号，并查是否存在当前 lk2nd 之外的固定 compatible。 |
+| MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | 同属 512MB MTP 通用桶；lk2nd 记录误识别 MF601 时的 reset GPIO 34 和可选 WPS GPIO 107 | `source-candidate` | 确认板号、按键和原厂固件 ID。 |
+| UZ801 v3.0 | `yiming,uz801-v3` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB，加 DSI JDI 1080p cmdline 匹配 | `source-candidate` | 确认 panel cmdline，以及 stock aboot 是否有 qhypstub/TZ 兼容问题。 |
+| JZ0145 v33 | `xiaoxun,jz0145-v33` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB，加 DSI ST7796S 320p cmdline 匹配 | `source-candidate` | 确认 panel cmdline 和 GPIO 37 EDL 键行为。 |
+| UF896 | `thwc,uf896` | `msm8916-512mb-qrd-skuh.dts` | `QCOM_ID_MSM8916 0`，QRD SKUH board ID，包含 `0x100`/`0x104` 变体 | `source-candidate` | 提取 vendor DTS，确认准确 QRD board tuple。 |
 
-## postmarketOS Baseline
+## postmarketOS 基线
 
-For an MSM8916 modem stick, start from the generic pmaports path unless a device-specific package is later found:
+对于 MSM8916 4G stick，除非找到更具体的设备包，否则先以 pmaports 的通用路径作为起点：
 
-| Layer | Candidate package/path | Why it matters |
+| 层级 | 候选包/路径 | 作用 |
 | --- | --- | --- |
-| Device package | `device/testing/device-qcom-msm8916` | Generic MSM8916/MSM8939 package with fastboot and lk2nd extlinux support. |
-| Kernel package | `device/testing/linux-postmarketos-qcom-msm8916` | Uses the msm8916-mainline Linux fork and installs DTBs. |
-| SoC package | `device/testing/soc-qcom-msm8916` | Common GPU/audio/remoteproc/modem support. |
+| 设备包 | `device/testing/device-qcom-msm8916` | MSM8916/MSM8939 通用包，带 fastboot 和 lk2nd extlinux 支持。 |
+| Kernel 包 | `device/testing/linux-postmarketos-qcom-msm8916` | 使用 msm8916-mainline Linux fork，并安装 DTB。 |
+| SoC 包 | `device/testing/soc-qcom-msm8916` | 通用 GPU/audio/remoteproc/modem 支持。 |
 
-## First Real-Hardware Checklist
+## 第一台真机 checklist
 
-1. Photograph PCB markings and labels.
-2. Record USB IDs in normal, fastboot, and EDL modes.
-3. Back up readable partitions before flashing.
-4. Save original `boot.img` and full firmware package if available.
-5. Extract DTB/DTS and record `qcom,msm-id`, `qcom,board-id`, `qcom,pmic-id`.
-6. Compare extracted IDs with the lk2nd candidates above.
-7. Prefer lk1st fixed-compatible testing where upstream says lk2nd cannot distinguish variants automatically.
+1. 拍摄 PCB 丝印和外壳标签。
+2. 记录正常模式、fastboot、EDL 下的 USB ID。
+3. 刷写前备份可读取分区。
+4. 保存原厂 `boot.img` 和完整固件包。
+5. 提取 DTB/DTS，并记录 `qcom,msm-id`、`qcom,board-id`、`qcom,pmic-id`。
+6. 对照上面的 lk2nd 候选。
+7. 如果上游说明 lk2nd 无法自动区分变体，优先测试 lk1st 固定 compatible。
