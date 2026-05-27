@@ -7,6 +7,7 @@
 | 状态 | 含义 |
 | --- | --- |
 | `source-candidate` | 上游源码或可信参考中存在，但本地还没有真机/固件证明。 |
+| `buildable-unverified` | 已能编译出镜像，但没有固件匹配或真机启动证明。 |
 | `firmware-identified` | 已检查 vendor 固件并提取 ID。 |
 | `hardware-identified` | 已记录真机板号、USB ID、启动模式和恢复路径。 |
 | `lk2nd-selected` | lk2nd/lk1st 已选择预期设备节点。 |
@@ -16,13 +17,13 @@
 
 | 候选 | lk2nd compatible | lk2nd DTS | 源码线索 | 当前状态 | 第一项验证 |
 | --- | --- | --- | --- | --- | --- |
-| Unknown 4G modem stick group: UFI_001B/C, UFI003_MB_V02, MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | `QCOM_ID_MSM8916 0`，`QCOM_BOARD_ID_MTP 0x100`，共享 cmdline panel 匹配 | `source-candidate` | 提取 vendor DTS，确认 board ID/cmdline。 |
-| UFI-001C / UFI-001B | `thwc,ufi001c` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB；上游建议 lk1st 固定 compatible | `source-candidate` | 确认板号、原厂 boot image IDs、GPIO 37 EDL 键行为。 |
-| UFI003_MB_V02 | `zhihe,various` | `msm8916-512mb-mtp.dts` | 与 UFI_001B/C、MF601 同属 512MB MTP 通用桶 | `source-candidate` | 确认板号，并查是否存在当前 lk2nd 之外的固定 compatible。 |
-| MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | 同属 512MB MTP 通用桶；lk2nd 记录误识别 MF601 时的 reset GPIO 34 和可选 WPS GPIO 107 | `source-candidate` | 确认板号、按键和原厂固件 ID。 |
-| UZ801 v3.0 | `yiming,uz801-v3` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB，加 DSI JDI 1080p cmdline 匹配 | `source-candidate` | 确认 panel cmdline，以及 stock aboot 是否有 qhypstub/TZ 兼容问题。 |
-| JZ0145 v33 | `xiaoxun,jz0145-v33` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB，加 DSI ST7796S 320p cmdline 匹配 | `source-candidate` | 确认 panel cmdline 和 GPIO 37 EDL 键行为。 |
-| UF896 | `thwc,uf896` | `msm8916-512mb-qrd-skuh.dts` | `QCOM_ID_MSM8916 0`，QRD SKUH board ID，包含 `0x100`/`0x104` 变体 | `source-candidate` | 提取 vendor DTS，确认准确 QRD board tuple。 |
+| Unknown 4G modem stick group: UFI_001B/C, UFI003_MB_V02, MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | `QCOM_ID_MSM8916 0`，`QCOM_BOARD_ID_MTP 0x100`，共享 cmdline panel 匹配 | `buildable-unverified` | 提取 vendor DTS，确认 board ID/cmdline。 |
+| UFI-001C / UFI-001B | `thwc,ufi001c` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB；上游建议 lk1st 固定 compatible | `buildable-unverified` | 确认板号、原厂 boot image IDs、GPIO 37 EDL 键行为。 |
+| UFI003_MB_V02 | `zhihe,various` | `msm8916-512mb-mtp.dts` | 与 UFI_001B/C、MF601 同属 512MB MTP 通用桶 | `buildable-unverified` | 确认板号，并查是否存在当前 lk2nd 之外的固定 compatible。 |
+| MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | 同属 512MB MTP 通用桶；lk2nd 记录误识别 MF601 时的 reset GPIO 34 和可选 WPS GPIO 107 | `buildable-unverified` | 确认板号、按键和原厂固件 ID。 |
+| UZ801 v3.0 | `yiming,uz801-v3` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB，加 DSI JDI 1080p cmdline 匹配 | `buildable-unverified` | 确认 panel cmdline，以及 stock aboot 是否有 qhypstub/TZ 兼容问题。 |
+| JZ0145 v33 | `xiaoxun,jz0145-v33` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB，加 DSI ST7796S 320p cmdline 匹配 | `buildable-unverified` | 确认 panel cmdline 和 GPIO 37 EDL 键行为。 |
+| UF896 | `thwc,uf896` | `msm8916-512mb-qrd-skuh.dts` | `QCOM_ID_MSM8916 0`，QRD SKUH board ID，包含 `0x100`/`0x104` 变体 | `buildable-unverified` | 提取 vendor DTS，确认准确 QRD board tuple。 |
 
 ## postmarketOS 基线
 

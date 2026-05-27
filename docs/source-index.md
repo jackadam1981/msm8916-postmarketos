@@ -41,7 +41,7 @@ Linux kernel 还没有拉取。pmaports 里的 MSM8916 kernel 包当前指向 `h
 | `msm8916-512mb-mtp.dts` | `JZ0145 v33 4G Modem Stick`, `xiaoxun,jz0145-v33` | 同一个 bundle DTB，加 cmdline 匹配 | lk2nd 元数据中记录 GPIO 37 可作为 EDL 键。 |
 | `msm8916-512mb-qrd-skuh.dts` | `uf896 4G Modem Stick`, `thwc,uf896` | `qcom,msm-id = <QCOM_ID_MSM8916 0>`，多个 QRD SKUH board ID，子类型 `0x100`/`0x104` | 适合 lk1st 固定 `LK2ND_COMPATIBLE="thwc,uf896"`。 |
 
-上游 `rules.mk` 已经把 `msm8916-512mb-mtp.dtb` 和 `msm8916-512mb-qrd-skuh.dtb` 放进 `QCDTBS`。所以拿到真机后的第一步大概率是识别和选择已有适配，而不是立刻新增 DTS。
+上游 `rules.mk` 已经把 `msm8916-512mb-mtp.dtb` 和 `msm8916-512mb-qrd-skuh.dtb` 放进 `QCDTBS`。所以拿到真机后的第一步大概率是识别和选择已有候选，而不是立刻新增 DTS。注意：这些只是源码候选，不能等同于已验证设备树。
 
 ## pmaports MSM8916 结构
 
