@@ -79,6 +79,46 @@ edl w boot lk2nd-msm8916-ce7fc78.img
 
 This requires a working EDL setup, a compatible programmer, and confidence that `boot` is the correct target partition.
 
+## Qualcomm 9008 / EDL Backup
+
+Qualcomm 9008 mode is EDL mode. With a compatible Firehose programmer, tools such as `edl` can read and write partitions.
+
+First check that EDL can see the partition table:
+
+```sh
+edl printgpt
+```
+
+If the storage type or LUN must be specified, use the values that match the device:
+
+```sh
+edl printgpt --memory=emmc
+edl printgpt --memory=ufs --lun=0
+```
+
+Back up `boot` before writing anything:
+
+```sh
+edl r boot original-boot.img
+sha256sum original-boot.img
+```
+
+Then, only after confirming the backup and target partition:
+
+```sh
+edl w boot lk2nd-msm8916-ce7fc78.img
+```
+
+For A/B devices the partition may be `boot_a` or `boot_b` instead of `boot`:
+
+```sh
+edl r boot_a boot_a.img
+edl r boot_b boot_b.img
+edl w boot_a lk2nd-msm8916-ce7fc78.img
+```
+
+Most MSM8916 OpenStick-style devices are expected to be eMMC-era devices, but do not assume partition names. Always inspect GPT first.
+
 ## OpenStick Notes
 
 For the OpenStick/UFI-style devices in this project, lk2nd likely covers several boards through the bundled MSM8916 QCDT image. That does not mean flashing is interchangeable.

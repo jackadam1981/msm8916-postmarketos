@@ -79,6 +79,46 @@ edl w boot lk2nd-msm8916-ce7fc78.img
 
 这需要可用的 EDL 工具、兼容的 programmer，并且确认 `boot` 是正确目标分区。
 
+## Qualcomm 9008 / EDL 备份
+
+Qualcomm 9008 模式就是 EDL 模式。只要有兼容的 Firehose programmer，`edl` 这类工具通常可以读写分区。
+
+第一步先确认能读到分区表：
+
+```sh
+edl printgpt
+```
+
+如果工具需要指定存储类型或 LUN，就按设备实际情况指定：
+
+```sh
+edl printgpt --memory=emmc
+edl printgpt --memory=ufs --lun=0
+```
+
+写入任何东西之前，先备份 `boot`：
+
+```sh
+edl r boot original-boot.img
+sha256sum original-boot.img
+```
+
+确认备份有效，并且确认目标分区确实是 `boot` 后，才写入：
+
+```sh
+edl w boot lk2nd-msm8916-ce7fc78.img
+```
+
+如果是 A/B 分区设备，分区名可能是 `boot_a` / `boot_b`，而不是 `boot`：
+
+```sh
+edl r boot_a boot_a.img
+edl r boot_b boot_b.img
+edl w boot_a lk2nd-msm8916-ce7fc78.img
+```
+
+MSM8916 OpenStick 类设备大概率是 eMMC 时代的设备，但不要凭经验假设分区名。必须先看 GPT。
+
 ## OpenStick 注意事项
 
 对于本项目关注的 OpenStick/UFI 类设备，当前通用 `lk2nd.img` 很可能通过 MSM8916 QCDT 覆盖多个候选板型。但这不代表所有设备可以随便互刷。
