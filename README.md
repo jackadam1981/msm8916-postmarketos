@@ -22,6 +22,8 @@
 - [源码索引](docs/source-index.md)
 - [设备矩阵](docs/device-matrix.md)
 - [构建 lk2nd](docs/build-lk2nd.md)
+- [固件提取流程](docs/firmware-extraction.zh-CN.md)
+- [第一台真机 checklist](docs/first-device-checklist.zh-CN.md)
 - [刷写 lk2nd](docs/flashing-lk2nd.zh-CN.md) / [Flashing lk2nd](docs/flashing-lk2nd.md)
 - [第三方源码](third_party/README.md)
 - [设计规格](docs/superpowers/specs/2026-05-27-msm8916-standard-linux-porting-design.md)
