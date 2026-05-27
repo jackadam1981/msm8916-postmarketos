@@ -21,6 +21,7 @@
 
 - [源码索引](docs/source-index.md)
 - [设备矩阵](docs/device-matrix.md)
+- [标准 Linux bring-up 路线](docs/standard-linux-bringup.zh-CN.md)
 - [构建 lk2nd](docs/build-lk2nd.md)
 - [固件提取流程](docs/firmware-extraction.zh-CN.md)
 - [第一台真机 checklist](docs/first-device-checklist.zh-CN.md)
