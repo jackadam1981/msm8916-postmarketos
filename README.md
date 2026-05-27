@@ -20,6 +20,7 @@ The immediate goal is to reduce trial-and-error once a real device or vendor fir
 
 - [Source Index](docs/source-index.md)
 - [Device Matrix](docs/device-matrix.md)
+- [Build lk2nd](docs/build-lk2nd.md)
 - [Third-Party Sources](third_party/README.md)
 - [Design Spec](docs/superpowers/specs/2026-05-27-msm8916-standard-linux-porting-design.md)
 
