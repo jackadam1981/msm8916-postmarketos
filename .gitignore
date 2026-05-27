@@ -1,0 +1,23 @@
+# Local firmware and extraction products
+firmware/*
+!firmware/.gitkeep
+out/*
+!out/.gitkeep
+
+# External source checkouts
+third_party/lk2nd/
+third_party/linux/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Temporary files and generated binaries
+*.tmp
+*.log
+*.img
+*.bin
+*.dtb
+*.dtbo
+*.dts.tmp
