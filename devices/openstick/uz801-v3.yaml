@@ -1,0 +1,47 @@
+schema: 1
+id: yiming-uz801-v3
+name: UZ801 v3.0 4G Modem Stick
+aliases:
+  - UZ801 v3
+family: openstick-like-msm8916
+soc: msm8916
+status: source-candidate
+evidence:
+  firmware: []
+  upstream_refs:
+    - lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts
+  board_photos: []
+  serial_logs: []
+hardware:
+  board_markings:
+    - UZ801
+  usb:
+    vendor_id: null
+    product_id: null
+    modes: []
+  storage: unknown
+  memory: 512MB candidate
+qcom_ids:
+  msm_id:
+    - QCOM_ID_MSM8916 0
+  board_id:
+    - QCOM_BOARD_ID_MTP 0x100
+  pmic_id: []
+lk2nd:
+  status: source-candidate
+  dts: msm8916-512mb-mtp.dts
+  compatible: yiming,uz801-v3
+  patch: null
+linux:
+  status: unknown
+  dts: msm8916-yiming-uz801v3
+  kernel_notes: []
+firmware:
+  known_files: []
+  extraction_notes:
+    - Confirm panel cmdline contains qcom,mdss_dsi_jdi_1080p_video before selecting this profile.
+flashing:
+  tested_methods: []
+  recovery_notes: []
+notes:
+  - Upstream notes stock aboot may be incompatible with qhypstub and db410c TZ firmware; prefer lk1st if possible.

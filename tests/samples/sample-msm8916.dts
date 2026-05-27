@@ -1,0 +1,9 @@
+/dts-v1/;
+
+/ {
+    model = "Sample MSM8916 Device";
+    compatible = "qcom,msm8916";
+    qcom,msm-id = <206 0>;
+    qcom,board-id = <8 0>;
+    qcom,pmic-id = <0x10009 0x1000a 0x0 0x0>;
+};

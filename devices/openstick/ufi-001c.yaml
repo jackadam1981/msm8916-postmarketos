@@ -1,0 +1,50 @@
+schema: 1
+id: thwc-ufi001c
+name: UFI-001C / UFI-001B 4G Modem Stick
+aliases:
+  - UFI_001C
+  - UFI_001B
+family: openstick-like-msm8916
+soc: msm8916
+status: source-candidate
+evidence:
+  firmware: []
+  upstream_refs:
+    - lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts
+  board_photos: []
+  serial_logs: []
+hardware:
+  board_markings:
+    - UFI-001C
+    - UFI-001B
+  usb:
+    vendor_id: null
+    product_id: null
+    modes: []
+  storage: unknown
+  memory: 512MB candidate
+qcom_ids:
+  msm_id:
+    - QCOM_ID_MSM8916 0
+  board_id:
+    - QCOM_BOARD_ID_MTP 0x100
+  pmic_id: []
+lk2nd:
+  status: source-candidate
+  dts: msm8916-512mb-mtp.dts
+  compatible: thwc,ufi001c
+  patch: null
+linux:
+  status: unknown
+  dts: msm8916-thwc-ufi001c
+  kernel_notes: []
+firmware:
+  known_files: []
+  extraction_notes:
+    - Confirm qcom IDs from original boot.img before selecting this profile.
+flashing:
+  tested_methods: []
+  recovery_notes:
+    - Upstream lk2nd metadata lists an EDL key on GPIO 37.
+notes:
+  - Upstream recommends lk1st with LK2ND_BUNDLE_DTB=msm8916-512mb-mtp.dtb and LK2ND_COMPATIBLE=thwc,ufi001c.

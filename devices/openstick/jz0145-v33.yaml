@@ -1,0 +1,47 @@
+schema: 1
+id: xiaoxun-jz0145-v33
+name: JZ0145 v33 4G Modem Stick
+aliases:
+  - JZ0145 v33
+family: openstick-like-msm8916
+soc: msm8916
+status: source-candidate
+evidence:
+  firmware: []
+  upstream_refs:
+    - lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts
+  board_photos: []
+  serial_logs: []
+hardware:
+  board_markings:
+    - JZ0145
+  usb:
+    vendor_id: null
+    product_id: null
+    modes: []
+  storage: unknown
+  memory: 512MB candidate
+qcom_ids:
+  msm_id:
+    - QCOM_ID_MSM8916 0
+  board_id:
+    - QCOM_BOARD_ID_MTP 0x100
+  pmic_id: []
+lk2nd:
+  status: source-candidate
+  dts: msm8916-512mb-mtp.dts
+  compatible: xiaoxun,jz0145-v33
+  patch: null
+linux:
+  status: unknown
+  dts: msm8916-xiaoxun-jz0145-v33
+  kernel_notes: []
+firmware:
+  known_files: []
+  extraction_notes:
+    - Confirm panel cmdline contains qcom,mdss_dsi_st7796s_320p_video before selecting this profile.
+flashing:
+  tested_methods: []
+  recovery_notes:
+    - Upstream lk2nd metadata lists an EDL key on GPIO 37.
+notes: []

@@ -1,0 +1,41 @@
+schema: 1
+id: msm8916-example-device
+name: Example MSM8916 Device
+aliases:
+  - Example Alias
+family: openstick-like-msm8916
+soc: msm8916
+status: unknown
+evidence:
+  firmware: []
+  upstream_refs: []
+  board_photos: []
+  serial_logs: []
+hardware:
+  board_markings: []
+  usb:
+    vendor_id: null
+    product_id: null
+    modes: []
+  storage: unknown
+  memory: unknown
+qcom_ids:
+  msm_id: []
+  board_id: []
+  pmic_id: []
+lk2nd:
+  status: unknown
+  dts: null
+  compatible: null
+  patch: null
+linux:
+  status: unknown
+  dts: null
+  kernel_notes: []
+firmware:
+  known_files: []
+  extraction_notes: []
+flashing:
+  tested_methods: []
+  recovery_notes: []
+notes: []

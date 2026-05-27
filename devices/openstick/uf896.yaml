@@ -1,0 +1,52 @@
+schema: 1
+id: thwc-uf896
+name: UF896 4G Modem Stick
+aliases:
+  - uf896
+family: openstick-like-msm8916
+soc: msm8916
+status: source-candidate
+evidence:
+  firmware: []
+  upstream_refs:
+    - lk2nd/device/dts/msm8916/msm8916-512mb-qrd-skuh.dts
+  board_photos: []
+  serial_logs: []
+hardware:
+  board_markings:
+    - UF896
+  usb:
+    vendor_id: null
+    product_id: null
+    modes: []
+  storage: unknown
+  memory: 512MB candidate
+qcom_ids:
+  msm_id:
+    - QCOM_ID_MSM8916 0
+  board_id:
+    - QCOM_BOARD_ID(QRD, 1, 0) 0x100
+    - QCOM_BOARD_ID(QRD, 1, 0) 0x104
+    - QCOM_BOARD_ID(QRD, 1, 1) 0x100
+    - QCOM_BOARD_ID(QRD, 1, 1) 0x104
+    - QCOM_BOARD_ID(QRD, 2, 1) 0x100
+    - QCOM_BOARD_ID(QRD, 2, 1) 0x104
+  pmic_id: []
+lk2nd:
+  status: source-candidate
+  dts: msm8916-512mb-qrd-skuh.dts
+  compatible: thwc,uf896
+  patch: null
+linux:
+  status: unknown
+  dts: msm8916-thwc-uf896
+  kernel_notes: []
+firmware:
+  known_files: []
+  extraction_notes:
+    - Extract vendor DTS to choose the exact QRD board tuple.
+flashing:
+  tested_methods: []
+  recovery_notes: []
+notes:
+  - Upstream recommends lk1st with LK2ND_BUNDLE_DTB=msm8916-512mb-qrd-skuh.dtb and LK2ND_COMPATIBLE=thwc,uf896.
