@@ -1,0 +1,47 @@
+schema: 1
+id: ufi003-mb-v02
+name: UFI003_MB_V02 4G Modem Stick
+aliases:
+  - UFI003_MB_V02
+family: openstick-like-msm8916
+soc: msm8916
+status: source-candidate
+evidence:
+  firmware: []
+  upstream_refs:
+    - lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts
+  board_photos: []
+  serial_logs: []
+hardware:
+  board_markings:
+    - UFI003_MB_V02
+  usb:
+    vendor_id: null
+    product_id: null
+    modes: []
+  storage: unknown
+  memory: 512MB candidate
+qcom_ids:
+  msm_id:
+    - QCOM_ID_MSM8916 0
+  board_id:
+    - QCOM_BOARD_ID_MTP 0x100
+  pmic_id: []
+lk2nd:
+  status: source-candidate
+  dts: msm8916-512mb-mtp.dts
+  compatible: zhihe,various
+  patch: null
+linux:
+  status: unknown
+  dts: null
+  kernel_notes: []
+firmware:
+  known_files: []
+  extraction_notes:
+    - Upstream groups this under zhihe,various because lk2nd cannot reliably distinguish it from nearby devices by cmdline alone.
+flashing:
+  tested_methods: []
+  recovery_notes: []
+notes:
+  - Needs vendor firmware or hardware evidence before choosing a fixed compatible.

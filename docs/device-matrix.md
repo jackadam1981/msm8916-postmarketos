@@ -18,6 +18,8 @@ This matrix tracks candidates before hardware arrives. Values here are source-de
 | --- | --- | --- | --- | --- | --- |
 | Unknown 4G modem stick group: UFI_001B/C, UFI003_MB_V02, MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | `QCOM_ID_MSM8916 0`, `QCOM_BOARD_ID_MTP 0x100`, shared cmdline panel match | `source-candidate` | Extract vendor DTS and confirm this board ID/cmdline. |
 | UFI-001C / UFI-001B | `thwc,ufi001c` | `msm8916-512mb-mtp.dts` | Same bundle DTB as above; upstream recommends lk1st fixed compatible | `source-candidate` | Confirm board label, original boot image IDs, EDL key behavior on GPIO 37. |
+| UFI003_MB_V02 | `zhihe,various` | `msm8916-512mb-mtp.dts` | Same generic MTP 512MB bucket as UFI_001B/C and MF601 | `source-candidate` | Confirm board marking and whether a fixed compatible exists outside current lk2nd. |
+| MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | Same generic MTP 512MB bucket; lk2nd lists reset GPIO 34 and optional WPS GPIO 107 for mis-detected MF601 | `source-candidate` | Confirm board marking, keys, and original firmware IDs. |
 | UZ801 v3.0 | `yiming,uz801-v3` | `msm8916-512mb-mtp.dts` | Same bundle DTB plus DSI JDI 1080p cmdline match | `source-candidate` | Confirm panel cmdline and whether stock aboot has qhypstub/TZ incompatibility. |
 | JZ0145 v33 | `xiaoxun,jz0145-v33` | `msm8916-512mb-mtp.dts` | Same bundle DTB plus DSI ST7796S 320p cmdline match | `source-candidate` | Confirm panel cmdline and EDL key behavior on GPIO 37. |
 | UF896 | `thwc,uf896` | `msm8916-512mb-qrd-skuh.dts` | `QCOM_ID_MSM8916 0`, QRD SKUH board IDs with `0x100`/`0x104` variants | `source-candidate` | Extract vendor DTS and choose the exact QRD board tuple. |

@@ -35,6 +35,8 @@ Modem-stick candidates already present upstream:
 | --- | --- | --- | --- |
 | `msm8916-512mb-mtp.dts` | `Unknown 4G Modem Stick`, `zhihe,various` | `qcom,msm-id = <QCOM_ID_MSM8916 0>`, `qcom,board-id = <QCOM_BOARD_ID_MTP 0x100>` | Generic bucket for UFI_001B/C, UFI003_MB_V02, MF601. Upstream says automatic distinction is difficult because cmdline is shared. |
 | `msm8916-512mb-mtp.dts` | `ufi-001c/ufi-001b 4G Modem Stick`, `thwc,ufi001c` | same bundle DTB | Intended for `lk1st` with `LK2ND_COMPATIBLE="thwc,ufi001c"`. |
+| `msm8916-512mb-mtp.dts` | `UFI003_MB_V02` | same generic `zhihe,various` bucket | Mentioned in upstream comments, but current lk2nd does not expose a separate compatible node for it. |
+| `msm8916-512mb-mtp.dts` | `MF601` | same generic `zhihe,various` bucket | Mentioned in upstream comments; lk2nd lists reset/WPS key GPIOs for a mis-detected MF601 case. |
 | `msm8916-512mb-mtp.dts` | `uz801 v3.0 4G Modem Stick`, `yiming,uz801-v3` | same bundle DTB plus cmdline match | Upstream notes stock aboot may be incompatible with qhypstub/db410c TZ firmware; prefer lk1st if possible. |
 | `msm8916-512mb-mtp.dts` | `JZ0145 v33 4G Modem Stick`, `xiaoxun,jz0145-v33` | same bundle DTB plus cmdline match | Has an EDL key on GPIO 37 in lk2nd metadata. |
 | `msm8916-512mb-qrd-skuh.dts` | `uf896 4G Modem Stick`, `thwc,uf896` | `qcom,msm-id = <QCOM_ID_MSM8916 0>`, multiple QRD SKUH board IDs with subtype `0x100`/`0x104` | Intended for `lk1st` with `LK2ND_COMPATIBLE="thwc,uf896"`. |
