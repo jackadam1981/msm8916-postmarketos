@@ -39,6 +39,24 @@
 | `https://www.123pan.com/s/8y49-LwZ0h` | GitHub gist 和多个转载提到的酷铵水遍/MIKO 刷机包来源。 | 可能需要注册或网盘客户端；先只下载、列目录、算 hash。 |
 | `https://pan.baidu.com/s/11YNVZPSMbX0zo9oaxyuFQQ` 提取码 `is4d` | 数码之家帖子补发链接。 | 内容未知，需离线核验，不可信任为原厂包。 |
 
+## 已下载包离线检查
+
+`D:\123pan\Downloads\ufi003_mb_v02影腾原厂包.zip`
+
+- SHA-256：`30c313ae5d136f1a5da8a8561490f135b807286b9358800239800b491c90572d`
+- 本地分析目录：`out/firmware-packages/ufi003_mb_v02-yingteng-stock/`
+- 包内有 `backup/rawprogram0.xml`、`patch0.xml`、`partition.xml`、GPT、`NON-HLOS.bin`、`boot.img`、`recovery.img`、`system.img`、`userdata.img`、`persist.img` 和 bootloader 链镜像。
+- `rawprogram0.xml` 分区大小和当前 ADB 备份布局基本一致；`userdata` 使用 `num_partition_sectors=0`，由 `patch0.xml` 动态吃剩余空间。
+- 包内 `system.img` 可搜到 build properties，版本为 `2022-05-21`，仍包含 `ro.build.model_type=ZX_UFI001C` 和 `ro.build.cust_proj=UFI001C`，所以它不是一个干净标识为 UFI003 的 Android 系统镜像。
+- 包内 `boot.img` 不是标准 Android boot image 魔数，但含 `UFI003_CT 20211210` 字符串；需要确认这是否为工具导出的特殊分区格式或文件名混淆。
+- 包内关键镜像和当前错包 ADB 备份 hash 不同，说明不是当前运行的 `2022-06-15` 错包。
+
+高风险点：
+
+- `rawprogram0.xml` 中 `abootbak` 的 `filename` 是 `boot.img`，疑似异常；正常情况下更可能应为 `emmc_appsboot.mbn`。不能盲刷原始 XML。
+- 包会写 `modemst1`、`modemst2`、`fsg`、`persist`。这些包含校准/设备个体数据，除非明确要恢复且已有本机备份，否则应从刷写列表中剔除。
+- 包会写 GPT。虽然布局匹配当前机器，但首次验证建议只读 EDL，并优先准备“修正/裁剪后的 rawprogram”，不要直接全盘恢复。
+
 ## 当前本机证据
 
 本地备份路径：
