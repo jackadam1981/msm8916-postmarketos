@@ -9,6 +9,11 @@ import re
 from pathlib import Path
 
 PROPERTIES = ("qcom,msm-id", "qcom,board-id", "qcom,pmic-id")
+PROPERTY_CELL_WIDTHS = {
+    "qcom,msm-id": 2,
+    "qcom,board-id": 2,
+    "qcom,pmic-id": 4,
+}
 
 
 def parse_cells(value: str) -> list[int | str]:
@@ -24,13 +29,22 @@ def parse_cells(value: str) -> list[int | str]:
     return cells
 
 
+def split_property_cells(prop: str, cells: list[int | str]) -> list[list[int | str]]:
+    width = PROPERTY_CELL_WIDTHS[prop]
+    if len(cells) <= width:
+        return [cells]
+    if len(cells) % width != 0:
+        return [cells]
+    return [cells[index : index + width] for index in range(0, len(cells), width)]
+
+
 def extract_ids(dts_text: str) -> dict[str, list[list[int | str]]]:
     result: dict[str, list[list[int | str]]] = {name: [] for name in PROPERTIES}
     for prop in PROPERTIES:
         pattern = re.compile(rf"{re.escape(prop)}\s*=\s*((?:<[^>]*>\s*,?\s*)+);", re.MULTILINE)
         for match in pattern.finditer(dts_text):
             for group in re.findall(r"<([^>]*)>", match.group(1)):
-                result[prop].append(parse_cells(group))
+                result[prop].extend(split_property_cells(prop, parse_cells(group)))
     return result
 
 

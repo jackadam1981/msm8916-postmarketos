@@ -10,6 +10,9 @@ third_party/pmaports/
 third_party/pmbootstrap/
 third_party/linux/
 
+# Local tool downloads
+.local-tools/
+
 # Python
 __pycache__/
 *.py[cod]

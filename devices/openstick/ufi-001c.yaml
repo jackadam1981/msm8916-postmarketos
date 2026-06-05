@@ -6,9 +6,10 @@ aliases:
   - UFI_001B
 family: openstick-like-msm8916
 soc: msm8916
-status: source-candidate
+status: firmware-identified
 evidence:
-  firmware: []
+  firmware:
+    - Original Android live ADB capture from 410 device, boot SHA-256 69c726aabd79886f37c8ad6c81bffc30c3c9ce742d3c1018c8e59900ec7b8ec7.
   upstream_refs:
     - lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts
   board_photos: []
@@ -25,9 +26,12 @@ hardware:
   memory: 512MB candidate
 qcom_ids:
   msm_id:
-    - QCOM_ID_MSM8916 0
+    - 206 0
+    - 248 0
+    - 249 0
+    - 250 0
   board_id:
-    - QCOM_BOARD_ID_MTP 0x100
+    - 8 0x100
   pmic_id: []
 lk2nd:
   status: source-candidate
@@ -39,12 +43,17 @@ linux:
   dts: msm8916-thwc-ufi001c
   kernel_notes: []
 firmware:
-  known_files: []
+  known_files:
+    - out/bringup/410-android/firmware/original-boot.img
   extraction_notes:
-    - Confirm qcom IDs from original boot.img before selecting this profile.
+    - Runtime device tree model is "Qualcomm Technologies, Inc. MSM 8916 512MB MTP".
+    - Runtime compatible is "qcom,msm8916-mtp", "qcom,msm8916", "qcom,mtp".
+    - Original boot contains 33 DTBs; selected runtime match is dtb-04, MSM 8916 512MB MTP with qcom,mdss_spi_st7735s_128128_cmd.
+    - Android properties include ro.build.cust_proj=UFI001C, ro.build.model_type=ZX_UFI001C, ro.build.hw.version=HW1.3.
 flashing:
   tested_methods: []
   recovery_notes:
     - Upstream lk2nd metadata lists an EDL key on GPIO 37.
 notes:
   - Upstream recommends lk1st with LK2ND_BUNDLE_DTB=msm8916-512mb-mtp.dtb and LK2ND_COMPATIBLE=thwc,ufi001c.
+  - Firmware is identified, but hardware is not yet identified; PCB photos and board markings are still required before treating this as a stable port target.
