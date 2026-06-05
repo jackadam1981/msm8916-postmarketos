@@ -26,6 +26,7 @@
 - [固件提取流程](docs/firmware-extraction.zh-CN.md)
 - [第一台真机 checklist](docs/first-device-checklist.zh-CN.md)
 - [真机 bring-up 证据包](docs/bringup-evidence.zh-CN.md)
+- [UFI003_MB_V02 救砖包线索](docs/ufi003-rescue-package-research.zh-CN.md)
 - [刷写 lk2nd](docs/flashing-lk2nd.zh-CN.md) / [Flashing lk2nd](docs/flashing-lk2nd.md)
 - [第三方源码](third_party/README.md)
 - [设计规格](docs/superpowers/specs/2026-05-27-msm8916-standard-linux-porting-design.md)

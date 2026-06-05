@@ -18,8 +18,8 @@
 | 候选 | lk2nd compatible | lk2nd DTS | 源码线索 | 当前状态 | 第一项验证 |
 | --- | --- | --- | --- | --- | --- |
 | Unknown 4G modem stick group: UFI_001B/C, UFI003_MB_V02, MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | `QCOM_ID_MSM8916 0`，`QCOM_BOARD_ID_MTP 0x100`，共享 cmdline panel 匹配 | `buildable-unverified` | 提取 vendor DTS，确认 board ID/cmdline。 |
-| UFI-001C / UFI-001B | `thwc,ufi001c` | `msm8916-512mb-mtp.dts` | 410 原版 Android ADB 采集显示 `ro.build.cust_proj=UFI001C`，runtime DT 为 MSM 8916 512MB MTP，`qcom,board-id=<8 0x100>`；上游建议 lk1st 固定 compatible | `firmware-identified` | 补 PCB 照片、板号、USB 模式和 GPIO 37 EDL 键行为。 |
-| UFI003_MB_V02 | `zhihe,various` | `msm8916-512mb-mtp.dts` | 与 UFI_001B/C、MF601 同属 512MB MTP 通用桶 | `buildable-unverified` | 确认板号，并查是否存在当前 lk2nd 之外的固定 compatible。 |
+| UFI-001C / UFI-001B | `thwc,ufi001c` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB；上游建议 lk1st 固定 compatible | `buildable-unverified` | 需要真实 UFI-001C/001B 板号或原厂固件证据。 |
+| UFI003_MB_V02 | `zhihe,various` | `msm8916-512mb-mtp.dts` | 真机照片丝印为 `UFI003_MB_V02`；当前 Android 报 `UFI001C/ZX_UFI001C`，判断为错包能启动；仍属 512MB MTP 通用桶 | `source-candidate` | 查找 `UFI003_MB_V02_EDL.7z` 或等价 rawprogram 救砖包，并用 9008/EDL 做只读备份验证。 |
 | MF601 | `zhihe,various` | `msm8916-512mb-mtp.dts` | 同属 512MB MTP 通用桶；lk2nd 记录误识别 MF601 时的 reset GPIO 34 和可选 WPS GPIO 107 | `buildable-unverified` | 确认板号、按键和原厂固件 ID。 |
 | UZ801 v3.0 | `yiming,uz801-v3` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB，加 DSI JDI 1080p cmdline 匹配 | `buildable-unverified` | 确认 panel cmdline，以及 stock aboot 是否有 qhypstub/TZ 兼容问题。 |
 | JZ0145 v33 | `xiaoxun,jz0145-v33` | `msm8916-512mb-mtp.dts` | 同一个 bundle DTB，加 DSI ST7796S 320p cmdline 匹配 | `buildable-unverified` | 确认 panel cmdline 和 GPIO 37 EDL 键行为。 |

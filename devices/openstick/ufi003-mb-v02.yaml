@@ -7,10 +7,12 @@ family: openstick-like-msm8916
 soc: msm8916
 status: source-candidate
 evidence:
-  firmware: []
+  firmware:
+    - Current running Android boot is known to be from a wrong rescue package and must not be used as original firmware identity.
   upstream_refs:
     - lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts
-  board_photos: []
+  board_photos:
+    - 2026-06-06 photo shows PCB silkscreen UFI003_MB_V02.
   serial_logs: []
 hardware:
   board_markings:
@@ -37,11 +39,15 @@ linux:
   dts: null
   kernel_notes: []
 firmware:
-  known_files: []
+  known_files:
+    - Need original UFI003_MB_V02_EDL.7z or equivalent rawprogram0.xml rescue package.
   extraction_notes:
     - Upstream groups this under zhihe,various because lk2nd cannot reliably distinguish it from nearby devices by cmdline alone.
+    - The connected device currently boots an Android image that reports ro.build.cust_proj=UFI001C and ro.build.model_type=ZX_UFI001C, but the PCB silkscreen is UFI003_MB_V02; treat that firmware as a wrong-but-bootable package.
+    - Current runtime DT still matches MSM 8916 512MB MTP, qcom,board-id=<8 0x100>, but this does not prove the original UFI003 firmware content.
 flashing:
   tested_methods: []
   recovery_notes: []
 notes:
-  - Needs vendor firmware or hardware evidence before choosing a fixed compatible.
+  - Hardware marking is identified as UFI003_MB_V02.
+  - Needs a matching UFI003_MB_V02 rescue/original firmware before using Android build properties as evidence.
