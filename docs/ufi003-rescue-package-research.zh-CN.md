@@ -61,6 +61,30 @@
 - 包会写 `modemst1`、`modemst2`、`fsg`、`persist`。这些包含校准/设备个体数据，除非明确要恢复且已有本机备份，否则应从刷写列表中剔除。
 - 包会写 GPT。虽然布局匹配当前机器，但首次验证建议只读 EDL，并优先准备“修正/裁剪后的 rawprogram”，不要直接全盘恢复。
 
+## MIKO 全盘 bin 包检查
+
+分析目录：
+
+```text
+out/firmware-packages/miko-full-images/
+out/firmware-packages/remote-onepkg/
+```
+
+当前设备 ADB 看到的 `mmcblk0` 大小约 `3702784 KiB`，即 `3791650816` bytes。MIKO 全盘 bin 是否可用于本机整盘恢复，首先要看镜像总长度是否不超过该容量。
+
+| 包 | 解包文件 | 源包 SHA-256 | 解包文件 SHA-256 | 解包文件大小 | 判断 |
+| --- | --- | --- | --- | --- | --- |
+| `3.53G miko包_UFI003.bin.7z` | `椰贝003_3.53G miko包.bin` | `6dbe93b08a07464cdf795e0afddd36b30baf4a64800697f2da3d12128e410782` | `dc7dee25b28e69a5c464605735dca05b2bf9dfccd8e335c2795c0dcac3154dc5` | `3791633920` | 最接近当前本机 eMMC 容量；含 GPT、`UFI003_CT 20211210`、Android boot/QCDT/FDT、system build `eng.liufeihua.20220507`。当前最有价值的 UFI003 全盘候选。 |
+| `3.61G_miko003.7z` | `003.bin` | `2ed2e8749fcf16b31d9a9d822eb368172af327800bee943e0f224dc9eb6ac8bd` | `196d4fceaee8d02ab360a319282ee60f4021269ac0dc51ed929bbd95bfe8d74a` | `3875520000` | 含 `UFI003_CT 20211210` 和 `UFI003_MB_V02.qcn`，但镜像大于当前本机 eMMC 容量约 80 MiB；不能作为本机整盘直写候选。 |
+| `MIKO-QRZL903-1.zip` | `QRZL903-1.bin` | `b2f23bb42db3a777c604666e8ecd2269d2447f35284534cc959cd91845caf1d6` | `8fb0b9b078ab646d5ffbf97abdaadac76f2743fce0329352c6cab8b592442fda` | `3875520000` | 标记为 `UFI001CT 20211106`，QCN 也含 `UFI001C`；不是 UFI003_MB_V02 候选。 |
+
+补充：
+
+- `3.61G_miko003.7z` 附带 `UFI003_MB_V02.qcn`，SHA-256：`bbcd4fb4aa709a6c196278ecd90f7cb4c27cddb63cdcf4e54f4b46b0c692945e`。QCN 内含 `UFI003_CT 20211210`。
+- `MIKO-QRZL903-1.zip` 附带 `QRZL903-1.qcn`，SHA-256：`f4926fd44398127926af7f36cd277907d2e455f3a569955733ef46feaf8eb659`。QCN 内含 `UFI001CT 20211106`。
+- 三个 bin 都有 GPT，分区名和当前设备一致：`modem`、`sbl1`、`aboot`、`rpm`、`tz`、`hyp`、`modemst1/2`、`fsg`、`boot`、`system`、`persist`、`cache`、`recovery`、`userdata`。
+- 即使 `3.53G` 容量匹配，也不建议直接整盘写入，因为会覆盖本机 `modemst1`、`modemst2`、`fsg`、`persist` 等个体校准/持久化数据。更安全的方式是从该全盘 bin 中按 GPT 偏移切出 `boot/system/recovery` 等分区，或只作为离线对比和最终救砖兜底。
+
 ## 当前本机证据
 
 本地备份路径：
