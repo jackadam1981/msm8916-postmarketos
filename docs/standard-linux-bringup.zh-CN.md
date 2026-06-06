@@ -1,6 +1,6 @@
 # 标准 Linux bring-up 路线
 
-本文记录 MSM8916 OpenStick/UFI 类设备在确认身份后的标准 Linux 推进顺序。当前还没有真机，所以这里只定义可复用流程，不声称任何板型已经能启动 Linux。
+本文记录 MSM8916 OpenStick/UFI 类设备在确认身份后的标准 Linux 推进顺序。当前已有 `UFI003_MB_V02` 与 `QRZL903-1` 真机证据；本文仍只定义标准 Linux 推进流程，不声称任何板型已经能启动标准 Linux。
 
 ## 阶段 0：身份确认
 
@@ -32,10 +32,12 @@
 3. 首次写入只碰 boot 相关分区，不碰 modem、tz、rpm、aboot 等底层固件。
 4. 每次测试都保存串口、USB、fastboot 或 EDL 输出。
 
-当前已可构建的候选见：
+本轮候选和重建入口见：
 
 - `docs/build-lk2nd.md`
-- `out/lk2nd-variants/manifest.psv`
+- `docs/lk2nd-lk1st-next-stage.zh-CN.md`
+
+历史无真机阶段的 `out/lk2nd-*` 构建产物已清理；下一轮应在编译机按当前源码和真机证据重新构建并生成新的 manifest。
 
 ## 阶段 2：最小 Linux 启动
 

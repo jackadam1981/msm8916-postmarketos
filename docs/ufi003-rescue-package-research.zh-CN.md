@@ -1,6 +1,8 @@
 # UFI003_MB_V02 救砖包线索
 
-当前真机 PCB 丝印为 `UFI003_MB_V02`。设备曾经使用错误救砖包恢复，目前 Android 能启动但 `getprop` 显示 `UFI001C/ZX_UFI001C`，因此现有 Android 固件只能作为“错包能启动”的证据，不能作为原厂身份依据。
+收敛状态：三台 `UFI003_MB_V02` 已在 2026-06-06 使用 3.53G MIKO/UFI003 分区基线恢复并提取运行态设备树，当前清单以 `docs/ufi003-device-inventory.zh-CN.md` 和 `docs/ufi003-device-tree-evidence.zh-CN.md` 为准。本文保留早期救砖包线索、下载来源和风险判断，主要用于追溯，不再作为下一阶段 lk2nd/lk1st 的入口文档。
+
+历史背景：最早接入的真机 PCB 丝印为 `UFI003_MB_V02`，但曾经使用错误救砖包恢复，当时 Android 能启动且 `getprop` 显示 `UFI001C/ZX_UFI001C`；该状态只能作为“错包能启动”的反例证据，不能作为原厂身份依据。
 
 ## 目标包
 
@@ -70,6 +72,15 @@ out/firmware-packages/miko-full-images/
 out/firmware-packages/remote-onepkg/
 ```
 
+仓库工具：
+
+```bash
+python tools/split_qcom_gpt_image.py <whole-disk.bin> --markdown gpt-summary.md
+python tools/split_qcom_gpt_image.py <whole-disk.bin> --output-dir split-safe
+```
+
+`split_qcom_gpt_image.py` 会解析主 GPT，并在默认导出时跳过 `modemst1`、`modemst2`、`fsg`、`fsc`、`ssd`、`persist`、`userdata`、`cache`。这些分区包含个体校准、持久化数据或大块用户数据，不应从公共包直接写入真机。
+
 当前设备 ADB 看到的 `mmcblk0` 大小约 `3702784 KiB`，即 `3791650816` bytes。MIKO 全盘 bin 是否可用于本机整盘恢复，首先要看镜像总长度是否不超过该容量。
 
 | 包 | 解包文件 | 源包 SHA-256 | 解包文件 SHA-256 | 解包文件大小 | 判断 |
@@ -84,6 +95,58 @@ out/firmware-packages/remote-onepkg/
 - `MIKO-QRZL903-1.zip` 附带 `QRZL903-1.qcn`，SHA-256：`f4926fd44398127926af7f36cd277907d2e455f3a569955733ef46feaf8eb659`。QCN 内含 `UFI001CT 20211106`。
 - 三个 bin 都有 GPT，分区名和当前设备一致：`modem`、`sbl1`、`aboot`、`rpm`、`tz`、`hyp`、`modemst1/2`、`fsg`、`boot`、`system`、`persist`、`cache`、`recovery`、`userdata`。
 - 即使 `3.53G` 容量匹配，也不建议直接整盘写入，因为会覆盖本机 `modemst1`、`modemst2`、`fsg`、`persist` 等个体校准/持久化数据。更安全的方式是从该全盘 bin 中按 GPT 偏移切出 `boot/system/recovery` 等分区，或只作为离线对比和最终救砖兜底。
+
+## 分区级比对结论
+
+已用 `tools/split_qcom_gpt_image.py` 从 `3.53G miko包_UFI003.bin.7z` 切出默认安全分区，输出目录：
+
+```text
+out/firmware-packages/miko-full-images/3.53G_miko__UFI003.bin/split-safe/
+```
+
+和当前 ADB 备份对比：
+
+| 分区 | 3.53G MIKO 与当前 ADB 是否相同 | 备注 |
+| --- | --- | --- |
+| `sbl1/sbl1bak`、`rpm/rpmbak`、`tz/tzbak`、`hyp/hypbak`、`DDR`、`sec`、`misc`、`modem`、`splash` | 相同 | 说明当前错包和 `3.53G` 候选包共享多数低级固件/基带分区。 |
+| `aboot/abootbak` | 不同 | bootloader 有差异；刷写前必须确认来源和回退路径。 |
+| `boot` | 不同 | 两者都是标准 Android boot image，cmdline 一致，但 kernel/ramdisk/DT 区 hash 不同。 |
+| `recovery` | 不同 | 两者都是标准 Android boot image，cmdline 一致，但区段 hash 不同。 |
+| `system` | 当前 ADB 未备份完整分区，无法直接 hash 对比 | `3.53G` system build 为 `eng.liufeihua.20220507`。 |
+
+和 `3.61G_miko003.7z` 对比：
+
+| 分区 | `3.53G` 与 `3.61G` 是否相同 | 判断 |
+| --- | --- | --- |
+| `modem` | 相同 | 两个 UFI003 包共享相同基带分区，当前 ADB 备份也相同。 |
+| `aboot/abootbak`、`boot`、`recovery`、`system` | 不同 | `3.61G` 可作为提取分区和交叉验证来源，但整盘长度大于当前 eMMC，不能整盘写入本机。 |
+
+影腾 rawprogram 包和 `3.53G`、当前 ADB 在同名关键分区上均不相同；其中 `boot.img` 不是标准 Android boot image 头，`emmc_appsboot.mbn` 和 `recovery.img` 头部也不像直接可刷镜像。结合 `rawprogram0.xml` 中 `abootbak` 指向 `boot.img` 的异常，当前不建议把影腾包作为首选救砖包。
+
+当前安全优先级：
+
+1. 保留本机 ADB 备份中的 `modemst1/modemst2/fsg/persist`，不要用公共包覆盖。
+2. `3.53G` 是容量最匹配的 UFI003 全盘候选，可作为 GPT 和分区提取来源。
+3. `3.61G` 是 UFI003 交叉验证来源，但只能提取分区，不能整盘写入当前机器。
+4. 影腾 rawprogram 包暂列高风险来源，除非后续能确认其镜像格式和 XML 错误，否则不用于直接刷写。
+
+## MIKO 试刷建议
+
+当前本机只下载到了 MIKO 镜像包，尚未下载 MIKO 工具和 9008 驱动。若使用 MIKO 工具试刷，建议按以下顺序执行：
+
+1. 安装 Qualcomm 9008 驱动和 MIKO 工具，但不要先写入。
+2. 让设备进 9008，确认设备管理器中出现 `Qualcomm HS-USB QDLoader 9008` 和稳定的 COM 口。
+3. 用 MIKO 或其他 EDL 工具先读出完整 block0/eMMC 备份，保存为新的本机全盘备份；备份大小应接近 `3791650816` bytes。
+4. 若必须用 MIKO 写入整盘 bin，只选择 `3.53G miko包_UFI003.bin.7z` 解出的 `椰贝003_3.53G miko包.bin`。
+5. 不要用 `3.61G_miko003.7z` 整盘写入当前机器，因为它大于当前 eMMC 容量。
+6. 不要用 `MIKO-QRZL903-1.zip`，它是 `UFI001CT` 证据，不是 UFI003 候选。
+7. 不要把影腾 rawprogram 包作为首选直接刷写来源。
+
+风险说明：
+
+- MIKO 整盘写入会覆盖 `modemst1`、`modemst2`、`fsg`、`persist` 等本机个体分区，可能影响 IMEI、射频校准、Wi-Fi/基带持久化数据。
+- 写入后若 Android 能启动，应优先检查 `getprop`、基带版本、IMEI、ADB/root 状态，再决定是否从 `out/bringup/410-android/firmware/partitions/` 恢复本机个体分区。
+- 若工具支持只写分区，优先写 `boot/recovery/system` 这类非个体分区；若 MIKO 只能整盘写，则把它视为救砖兜底手段。
 
 ## 当前本机证据
 

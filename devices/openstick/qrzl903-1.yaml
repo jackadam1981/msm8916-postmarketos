@@ -1,0 +1,72 @@
+schema: 1
+id: qrzl903-1
+name: QRZL903-1 4G Modem Stick
+aliases:
+  - QRZL903-1
+family: openstick-like-msm8916
+soc: msm8916
+status: hardware-identified
+evidence:
+  firmware:
+    - 2026-06-06 QRZL903-1 sample 01 was observed in EDL as MSM8916 serial 0x017a302b.
+    - Sample 01 initially had a Linux/OpenWrt-style layout with cdt, sbl1, rpm, tz, hyp, sec, modemst1/2, fsc, fsg, aboot, boot, devinfo, and rootfs.
+    - Sample 01 initial boot partition was Android boot image format but contained OpenWrt markers and an embedded FDT whose root model is "ufi-001c 4G Modem Stick" and compatible is "thwc,ufi001c", "qcom,msm8916".
+    - 2026-06-06 QRZL903-1 sample 02 booted stock Android/MIKO-style firmware with ADB serial d0b1d17, EDL serial 0x0b723827, baseband UFI001CT 20211106, and build UFI_XG_WFSER_HW03CTDD_220615.
+    - Sample 02 uses the Android/MTP-style GPT with the same partition starts as MIKO-QRZL903-1.bin, but userdata is 8MiB smaller to fit the 0xE6800000 eMMC.
+    - MIKO-QRZL903-1.zip is a useful older Android-layout reference, but the sample 02 full EDL backup is the preferred local stock baseline.
+    - 2026-06-06 sample 01 was restored from OpenWrt/Linux GPT back to Android/MTP GPT using a sample-02-based full image with sample 01 modemst1/2, fsc, and fsg injected.
+  upstream_refs:
+    - lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts
+  board_photos: []
+  serial_logs:
+    - out/bringup/qrzl903-01/edl-20260606/printgpt.txt
+    - out/bringup/qrzl903-02/edl-20260606/printgpt.txt
+hardware:
+  board_markings:
+    - QRZL903-1
+  usb:
+    vendor_id: "05c6"
+    product_id: "9008"
+    modes:
+      - edl
+  storage: 3867148288 bytes
+  memory: 512MB candidate
+qcom_ids:
+  msm_id:
+    - QCOM_ID_MSM8916 0
+  board_id: []
+  pmic_id: []
+lk2nd:
+  status: source-candidate
+  dts: msm8916-512mb-mtp.dts
+  compatible: thwc,ufi001c
+  patch: null
+linux:
+  status: firmware-extracted
+  dts: msm8916-thwc-ufi001c
+  kernel_notes:
+    - Current boot DTB is saved as out/bringup/qrzl903-01/device-tree-20260606/qrzl903-01-current-boot.dtb.
+firmware:
+  known_files:
+    - D:/123pan/Downloads/MIKO-QRZL903-1.zip
+    - out/bringup/qrzl903-02/edl-20260606/full-emmc-stock-android-20260606.bin
+  extraction_notes:
+    - Per-device inventory is documented in docs/qrzl903-device-inventory.zh-CN.md.
+    - Current sample 01 EDL backup is saved under out/bringup/qrzl903-01/edl-20260606/.
+    - Current boot DTB SHA256 is f140983483b78a99f60071ed34ceddab960e3ae9791076ad2395cd11bf2fa5de.
+    - Decompiled reference DTS SHA256 is 0bc5cf53af74cea435b684c119845d1641c668c9b5714b8891bfe1951e95c73e.
+    - Sample 02 stock Android full backup SHA256 is 9c59c8a296f0f7d4d0923756d9f078b0176f06f497cf694b1ce4f13eb78fe2a5.
+    - Sample 02 stock Android build is newer than MIKO-QRZL903-1.bin; aboot, boot, system, and recovery differ, while modem, sbl1, rpm, tz, hyp, misc, splash, DDR, and sec match.
+    - MIKO QRZL903 package QCDT entry platform_id=206 variant_id=8 subtype_id=256 is byte-identical to the UFI003_MB_V02 Android MTP DTB, so it is Android-layout evidence rather than proof that QRZL903-1 needs a separate standard-Linux DTS.
+    - Sample 01 Android restore image is out/bringup/qrzl903-01/android-restore-20260606/qrzl903-01-android-stock-preserve-nv-20260606.bin SHA256 37e4c70cdfc488c08fff204c4f010bbcc1f20e6977088253125aef2e8ca21339.
+    - Sample 01 after restore booted Android as ADB serial a33fbfc, RIL IMEI 864405028082598, NV Wi-Fi MAC 5c:a0:00:3c:a7:85, build UFI_XG_WFSER_HW03CTDD_220615.
+flashing:
+  tested_methods:
+    - EDL read with prog_emmc_firehose_8916_ddr_450.mbn
+  recovery_notes:
+    - Do not write MIKO-QRZL903-1.bin as a whole disk: image size 3875520000 bytes exceeds observed QRZL903-1 disk size 3867148288 bytes by 8371712 bytes.
+    - For stock Android recovery, prefer the sample 02 backup and preserve per-device modemst1/2, fsg, fsc, persist, and userdata data.
+    - Do not write Android MIKO partitions onto sample 01 current Linux GPT layout without first restoring or rewriting an Android GPT plan.
+    - The tested sample 01 recovery path used EDL wf with a patched full image and verified Android boot, GPT, IMEI, and Wi-Fi MAC afterward.
+notes:
+  - QRZL903-1 appears to map to the upstream thwc,ufi001c Linux compatible, but it should remain tracked as a separate physical board marking.

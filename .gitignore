@@ -19,6 +19,9 @@ __pycache__/
 .pytest_cache/
 
 # Temporary files and generated binaries
+.bifrost-headers.txt
+.codex-mcp-debug/
+log.txt
 *.tmp
 *.log
 *.img
