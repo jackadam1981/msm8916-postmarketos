@@ -27,6 +27,7 @@
 | 阿影源码 UFI003 教程 | 文中照片/描述指向 `UFI003_MB_V02`，提到配套资源中 Debian 包对应 `UFI003.zip`，开启 ADB 的固件对应 `UFI003_MB_V02.zip`，并通过 `rawprogram0.xml` 写入。 |
 | DuckXu 高通随身 WiFi 记录 | 作者以 `影腾 ufi003_mb_v02` 为例，说明 9008 下 XML 包选择 `rawprogram0.xml`，BIN 包使用 emmc block0 flasher；文章给出工具/驱动 123pan 链接 `https://www.123pan.com/s/PauCjv-l88Jv.html`，以及“遥控车固件”链接 `https://www.123pan.com/s/XwVDVv-WICn3`。 |
 | 苏苏小亮亮/Debian 转载链路 | 多个转载页面给出 `https://www.123pan.com/s/XwVDVv-WICn3#1234`，主要是 Debian/OpenWrt/遥控车固件目录；DuckXu 说明可在其中 `Debian-20220608` 目录下载 `UFI003.zip`。这更像 Linux 刷机包，不一定是原厂 Android EDL 包。 |
+| 博客园救砖记录 | 文章记录 9008 + miko 全量恢复流程，给出“miko 备份的全量包”链接 `https://www.123pan.com/s/NCtmjv-zRLav.html`，提取码 `1188`；同时给出 miko 工具和驱动链接。文章未明确板型，需要下载后核验。 |
 | GitHub gist 讨论 | 有人提到从 123pan 找到 `UFI003.zip`，评论中的设备信息包含 `HW Version: HW1.3`、`SW Version: UFI_003_V01_ZX_DD_221215`、`Baseband: UFI003_CT 20220903`。 |
 | ufiClub 文章列表 | 有 `高通410棒子(UFI003_MB_V02)刷机包分享(持续更新)` 条目，但当前停止注册，暂时不能作为可获取来源。 |
 
@@ -37,6 +38,9 @@
 | `https://www.123pan.com/s/PauCjv-l88Jv.html` | DuckXu 汇总的工具、驱动和可能的 UFI003_MB_V02 相关刷机资料。 | 需要人工打开确认目录和提取码；不要直接运行不明工具。 |
 | `https://www.123pan.com/s/XwVDVv-WICn3#1234` | 苏苏小亮亮/遥控车固件目录，公开转载较多；可能含 `Debian-20220608/UFI003.zip`。 | 主要用于 Debian/OpenWrt，不能当作原厂救砖包。 |
 | `https://www.123pan.com/s/8y49-LwZ0h` | GitHub gist 和多个转载提到的酷铵水遍/MIKO 刷机包来源。 | 可能需要注册或网盘客户端；先只下载、列目录、算 hash。 |
+| `https://www.123pan.com/s/NCtmjv-zRLav.html` 提取码 `1188` | 博客园文章给出的 miko 备份全量包，作者称约 3GB，可恢复分区表。 | 文章未说明具体型号，必须下载后对比 `rawprogram0.xml`、分区大小、boot/system 证据。 |
+| `https://www.123pan.com/s/NCtmjv-eRLav.html` 提取码 `1188` | 博客园文章给出的 miko 工具链接。 | 只作为工具来源线索，不在本仓库运行。 |
+| `https://www.123pan.com/s/NCtmjv-LRLav.html` 提取码 `1188` | 博客园文章给出的 9008/Qualcomm 驱动链接。 | 只作为驱动来源线索。 |
 | `https://pan.baidu.com/s/11YNVZPSMbX0zo9oaxyuFQQ` 提取码 `is4d` | 数码之家帖子补发链接。 | 内容未知，需离线核验，不可信任为原厂包。 |
 
 ## 已下载包离线检查
@@ -80,5 +84,6 @@ out/bringup/410-android/
 - 阿影源码教程：https://www.ayym.net/post-4918.html
 - DuckXu 记录：https://i.duckxu.com/archives/play_qualcomm_410_wifi_hotspot_stick_to_debian_and_openwrt_with_adb_on.html
 - 苏苏小亮亮刷机转载：https://blog.csdn.net/molun1101/article/details/127961397
+- 博客园救砖记录：https://www.cnblogs.com/Iterworld/p/17779673.html
 - GitHub gist 讨论：https://gist.github.com/185264646/cb13f3216b45dd75e13fdf579bfcf623
 - ufiClub 文章列表：https://www.mywifi.bond/articles
