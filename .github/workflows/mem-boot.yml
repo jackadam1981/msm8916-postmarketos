@@ -58,18 +58,22 @@ jobs:
           # Append DTB to kernel
           cat "$KERNEL" "$DTB" > /build/out/kernel-dtb.gz
 
-          # mkbootimg (provided in the container image)
-          mkbootimg \
-            --kernel /build/out/kernel-dtb.gz \
-            --ramdisk "$RAMDISK" \
-            --base 0x80000000 \
-            --kernel_offset 0x01000000 \
-            --ramdisk_offset 0x03000000 \
-            --dtb_offset 0x05000000 \
-            --tags_offset 0x00000100 \
-            --pagesize 2048 \
-            --cmdline "console=ttyMSM0,115200n8" \
-            -o /build/out/mem_boot.img
+           # Install mkbootimg if not present
+           if ! command -v mkbootimg >/dev/null 2>&1; then
+             apt-get update && apt-get install -y mkbootimg
+           fi
+           # mkbootimg (provided in the container image)
+           mkbootimg \
+             --kernel /build/out/kernel-dtb.gz \
+             --ramdisk "$RAMDISK" \
+             --base 0x80000000 \
+             --kernel_offset 0x01000000 \
+             --ramdisk_offset 0x03000000 \
+             --dtb_offset 0x05000000 \
+             --tags_offset 0x00000100 \
+             --pagesize 2048 \
+             --cmdline "console=ttyMSM0,115200n8" \
+             -o /build/out/mem_boot.img
 
           ls -lh /build/out/
 
