@@ -1,4 +1,7 @@
 name: mem-boot
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: false
 on:
   workflow_dispatch:
   # optional: you can also trigger on push/tag if needed
@@ -75,7 +78,9 @@ jobs:
              --cmdline "console=ttyMSM0,115200n8" \
              -o /build/out/mem_boot.img
 
-          ls -lh /build/out/
+           ls -lh /build/out/
+           echo "=== 检查 mkbootimg 版本 ==="
+           mkbootimg --version || echo "mkbootimg 未找到"
 
       - uses: actions/upload-artifact@v4
         with:
