@@ -1,0 +1,37 @@
+name: Build mainline kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_ref:
+        description: 'msm8916-mainline/linux git ref'
+        required: false
+        default: 'v6.6-msm8916'
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build kernel
+        run: |
+          mkdir -p artifacts
+          docker run --rm \
+            -e KERNEL_SRC=/src/kernel \
+            -e OUTPUT=/build/out \
+            -e KERNEL_REF=${{ github.event.inputs.kernel_ref }} \
+            -e PATCH_DIR=/repo/patches \
+            -e REPO=/repo \
+            -v ${{ github.workspace }}:/repo:ro \
+            -v ${{ github.workspace }}/artifacts:/build/out \
+            jackadam/pmos_build:260715 \
+            bash /repo/scripts/build_kernel.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-${{ github.sha }}
+          path: artifacts/
+          retention-days: 90
