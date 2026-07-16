@@ -62,9 +62,20 @@ jobs:
           cat "$KERNEL" "$DTB" > /build/out/kernel-dtb.gz
 
            # Install mkbootimg if not present
-           if ! command -v mkbootimg >/dev/null 2>&1; then
-             apt-get update && apt-get install -y mkbootimg
-           fi
+            if ! command -v mkbootimg >/dev/null 2>&1; then
+              if command -v apt-get >/dev/null 2>&1; then
+                apt-get update && apt-get install -y mkbootimg
+              elif command -v apk >/dev/null 2>&1; then
+                apk update && apk add --no-cache mkbootimg
+              elif command -v yum >/dev/null 2>&1; then
+                yum install -y mkbootimg
+              elif command -v dnf >/dev/null 2>&1; then
+                dnf install -y mkbootimg
+              else
+                echo "Unsupported package manager – cannot install mkbootimg"
+                exit 1
+              fi
+            fi
            # mkbootimg (provided in the container image)
            mkbootimg \
              --kernel /build/out/kernel-dtb.gz \
