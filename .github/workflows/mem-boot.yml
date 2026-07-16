@@ -37,16 +37,16 @@ jobs:
           make -C /build/kernel ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
           make -C /build/kernel -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz dtbs
 
-          # ---------- Minimal initramfs for memory‑boot validation ----------
-          mkdir -p /build/initramfs
-          cat > /build/initramfs/init << 'INITEOF'
-#!/bin/busybox sh
-# Print marker so we can see it on UART or via adbd (if you start it)
-echo "pmOS booting from initramfs..."
-# Keep the initramfs alive for a while so the message is observable
-sleep 30
-INITEOF
-          chmod +x /build/initramfs/init
+           # ---------- Minimal initramfs for memory‑boot validation ----------
+           mkdir -p /build/initramfs
+           cat > /build/initramfs/init << 'INITEOF'
+               #!/bin/busybox sh
+               # Print marker so we can see it on UART or via adbd (if you start it)
+               echo "pmOS booting from initramfs..."
+               # Keep the initramfs alive for a while so the message is observable
+               sleep 30
+           INITEOF
+           chmod +x /build/initramfs/init
           cd /build/initramfs
           find . | cpio -H newc -o | gzip > /build/out/initramfs.gz
 
