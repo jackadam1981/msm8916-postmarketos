@@ -14,6 +14,14 @@ jobs:
             config
             scripts
 
+      - name: Update pmbootstrap to latest
+        run: |
+          # Container has old pmbootstrap from gitlab.com (moved to postmarketos.org)
+          rm -rf /opt/pmbootstrap
+          git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /opt/pmbootstrap
+          ln -sf /opt/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
+          pmbootstrap --version
+
       - name: Build rootfs with pmbootstrap
         run: |
           set -eu
