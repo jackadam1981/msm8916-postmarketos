@@ -1,0 +1,58 @@
+name: build-rootfs
+on:
+  workflow_dispatch:
+
+jobs:
+  build-rootfs:
+    runs-on: ubuntu-latest
+    container:
+      image: jackadam/pmos_build:260715
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            config
+            scripts
+
+      - name: Build rootfs with pmbootstrap
+        run: |
+          set -eu
+
+          # Copy pmbootstrap config
+          mkdir -p ~/.config
+          cp config/pmbootstrap-build.cfg ~/.config/pmbootstrap.cfg
+
+          # pmbootstrap init (non-interactive, config already in place)
+          pmbootstrap -y --work=/build/pmbootstrap init
+
+          # Install rootfs (no FDE, zap previous build)
+          pmbootstrap -y --work=/build/pmbootstrap install --no-fde --zap
+
+          # Collect outputs
+          DEVICE="zhihe-ufi003-mb-v02"
+          mkdir -p /build/out
+
+          BOOT_IMG="/build/pmbootstrap/chroot_native/home/pmos/rootfs/${DEVICE}-boot.img"
+          ROOTFS_IMG="/build/pmbootstrap/chroot_native/home/pmos/rootfs/${DEVICE}.img"
+
+          if [ -f "$BOOT_IMG" ]; then
+            cp "$BOOT_IMG" /build/out/boot.img
+            echo "boot.img: $(ls -lh /build/out/boot.img)"
+          else
+            echo "WARNING: boot.img not found at $BOOT_IMG"
+          fi
+
+          if [ -f "$ROOTFS_IMG" ]; then
+            cp "$ROOTFS_IMG" /build/out/rootfs.img
+            echo "rootfs.img: $(ls -lh /build/out/rootfs.img)"
+          else
+            echo "WARNING: rootfs.img not found at $ROOTFS_IMG"
+          fi
+
+          ls -lh /build/out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pmos-images
+          path: /build/out/
+          retention-days: 90
