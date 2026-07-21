@@ -31,10 +31,10 @@ jobs:
           cp config/pmbootstrap-build.cfg ~/.config/pmbootstrap.cfg
 
           # pmbootstrap init (non-interactive, config already in place)
-          pmbootstrap -y --work=/build/pmbootstrap init
+          pmbootstrap --as-root -y --work=/build/pmbootstrap init
 
           # Install rootfs (no FDE, zap previous build)
-          pmbootstrap -y --work=/build/pmbootstrap install --no-fde --zap
+          pmbootstrap --as-root -y --work=/build/pmbootstrap install --no-fde --zap
 
           # Collect outputs
           DEVICE="zhihe-ufi003-mb-v02"
