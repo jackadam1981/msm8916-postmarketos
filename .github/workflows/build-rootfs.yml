@@ -79,14 +79,16 @@ jobs:
 
           cat "$CFG"
 
-          # Force-build device/kernel/firmware packages locally so the .apk
-          # files exist in packages/edge/aarch64/ for apk.static to find.
-          # Without --force, pmbootstrap checks the binary mirror and says
-          # "up to date" without actually building locally, then apk.static
-          # fails with "no such package" because it only has local repos.
+          # Force-build packages locally so the .apk files exist in
+          # packages/edge/aarch64/ for apk.static to find.  Without --force,
+          # pmbootstrap checks the binary mirror and says "up to date" without
+          # actually building locally, then apk.static fails with "no such
+          # package" because it only has local repos.
           for pkg in \
             device-generic-zhihe-nonfree-firmware \
-            device-generic-zhihe-kernel-ufi001c; do
+            device-generic-zhihe-kernel-ufi001c \
+            postmarketos-mkinitfs \
+            boot-deploy; do
             pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
           done
 
@@ -96,10 +98,13 @@ jobs:
           # directory during install — it's created by the same transaction).
           # The packages ARE installed successfully; the exit code is a false
           # positive. We check the log for "in <N> packages" to confirm.
+          # If the install partially fails (exit code 2 from trigger errors),
+          # retry without --zap to complete the remaining phases (initramfs, etc).
           if pmbootstrap --as-root install --password pmos --no-fde --zap; then
             echo "=== Install succeeded ==="
           elif grep -qE 'in [0-9]+ packages' "$WORK/log.txt" 2>/dev/null; then
-            echo "=== Install succeeded (apk exit code 2 = trigger errors, log shows packages installed) ==="
+            echo "=== Install had trigger errors, retrying without --zap to complete phases 3-4 ==="
+            pmbootstrap --as-root install --password pmos --no-fde || true
           else
             echo "=== FAILED: dumping pmbootstrap log (last 100 lines) ==="
             tail -100 "$WORK/log.txt" || true
@@ -109,9 +114,9 @@ jobs:
             exit 1
           fi
 
-          # Export images to /build/out/
+          # Export images to /build/out/ (handle failure gracefully).
           mkdir -p /build/out
-          pmbootstrap --as-root export /build/out/
+          pmbootstrap --as-root export /build/out/ 2>&1 || echo "=== Export failed, will search for images in work dir ==="
 
           echo "=== Contents of /build/out/ ==="
           ls -lh /build/out/ 2>/dev/null || echo "Export dir empty, searching work dir..."
