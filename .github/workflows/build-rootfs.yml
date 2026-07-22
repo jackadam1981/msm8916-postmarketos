@@ -97,7 +97,7 @@ jobs:
           # ARE installed despite the non-zero exit.  Without this patch,
           # pmbootstrap treats exit code 2 as fatal and aborts before
           # phases 3-4 (initramfs, export).
-          sed -i 's/check_return_code(p_apk.returncode, log_msg)/if p_apk.returncode != 2: check_return_code(p_apk.returncode, log_msg)/' \
+          sed -i 's/pmb\.helpers\.run_core\.check_return_code(p_apk\.returncode, log_msg)/if p_apk.returncode != 2:\n        pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)/' \
             /opt/pmbootstrap/pmb/helpers/apk.py
 
           # Install rootfs (no FDE, zap previous, password for automation).
