@@ -1,5 +1,10 @@
 name: build-rootfs
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-rootfs.yml'
+      - 'config/pmbootstrap-build.cfg'
   workflow_dispatch:
 
 jobs:
