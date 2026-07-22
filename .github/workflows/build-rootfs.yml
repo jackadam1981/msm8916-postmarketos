@@ -77,18 +77,21 @@ jobs:
 
           cat "$CFG"
 
-          # Pre-populate apk cache for both arches using the native apk.
-          # This gives pmbootstrap's internal apk.static cached APKINDEX data
-          # so it can resolve packages from mirrors during rootfs install.
-          for arch in x86_64 aarch64; do
-            CACHE="$WORK/cache_apk_$arch"
-            mkdir -p "$CACHE"
-            apk --root /tmp/apk-root --initdb --arch "$arch" \
-              --cache-dir "$CACHE" --keys-dir /etc/apk/keys update \
-              --repository "https://dl-cdn.alpinelinux.org/alpine/edge/main" \
-              --repository "https://dl-cdn.alpinelinux.org/alpine/edge/community" \
-              --repository "https://mirror.postmarketos.org/postmarketos/main"
-          done
+          # Add [mirrors] section so pmbootstrap passes proper --repository flags
+          # to apk.static during rootfs install.  Keys match pmbootstrap v3:
+          #   mirrors.alpine:  https://dl-cdn.alpinelinux.org/alpine/
+          #   mirrors.pmaports: https://mirror.postmarketos.org/postmarketos/
+          # pmbootstrap knows the correct per-repo path (alpine appends
+          # edge/main/<arch>, pmaports appends main/<arch> for the edge channel).
+          {
+            printf '%s\n' \
+              '' \
+              '[mirrors]' \
+              "alpine = https://dl-cdn.alpinelinux.org/alpine/" \
+              "pmaports = https://mirror.postmarketos.org/postmarketos/"
+          } >> "$CFG"
+          cat "$CFG"
+          echo "---"
 
           # Install rootfs (no FDE, zap previous, password for automation)
           pmbootstrap --as-root install --password pmos --no-fde --zap
