@@ -109,8 +109,8 @@ jobs:
           # Fix: postmarketos-mkinitfs 2.2.2-r2 (local build) doesn't support
           # the !optional suffix in file lists. Patch initfs.py to strip
           # !optional from file lists before running mkinitfs in the chroot.
-          echo "=== Fixing pmb/chroot/initfs.py: strip !optional before mkinitfs ==="
-          python3 -c "c=open('/opt/pmbootstrap/pmb/chroot/initfs.py').read();old='pmb.chroot.root([\"mkinitfs\"], chroot)';new='pmb.chroot.root([\"sh\", \"-c\", \"sed -i s/!optional//g /usr/share/mkinitfs/files/*.files 2>/dev/null || true; mkinitfs\"], chroot)';assert old in c, 'Pattern not found!';c=c.replace(old,new);open('/opt/pmbootstrap/pmb/chroot/initfs.py','w').write(c);print('Patched')"
+          echo "=== Fixing pmb/chroot/initfs.py: strip !optional and deviceinfo before mkinitfs ==="
+          python3 -c "c=open('/opt/pmbootstrap/pmb/chroot/initfs.py').read();old='pmb.chroot.root([\"mkinitfs\"], chroot)';new='pmb.chroot.root([\"sh\", \"-c\", \"sed -i /deviceinfo/d /usr/share/mkinitfs/files/*.files 2>/dev/null; mkinitfs\"], chroot)';assert old in c, 'Pattern not found!';c=c.replace(old,new);open('/opt/pmbootstrap/pmb/chroot/initfs.py','w').write(c);print('Patched')"
           grep -n 'mkinitfs' /opt/pmbootstrap/pmb/chroot/initfs.py
 
           # Install rootfs (no FDE, password for automation).
