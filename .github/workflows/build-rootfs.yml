@@ -77,6 +77,31 @@ jobs:
 
           cat "$CFG"
 
+          # Pre-populate apk cache with repo URLs so apk.static knows where to
+          # download packages (pmbootstrap downloads APKINDEX via Python directly,
+          # which does not create apk's internal state tracking files).
+          APK_STATIC="$WORK/apk.static"
+          APK_CACHE_X86="$WORK/cache_apk_x86_64"
+          APK_CACHE_ARM="$WORK/cache_apk_aarch64"
+          if [ ! -x "$APK_STATIC" ]; then
+            # Download and extract apk.static manually (it's needed before pmbootstrap gets it)
+            curl -sL -o /tmp/apk-tools-static.apk \
+              "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/apk-tools-static-3.0.6-r0.apk"
+            tar -xzf /tmp/apk-tools-static.apk -C /tmp/ sbin/apk.static 2>/dev/null || \
+              tar -xzf /tmp/apk-tools-static.apk -C /tmp/ --wildcards '*/apk.static' 2>/dev/null || \
+              (mkdir -p /tmp/apk-extract && cd /tmp/apk-extract && tar -xzf /tmp/apk-tools-static.apk && find . -name apk.static -exec cp {} "$APK_STATIC" \;)
+            find /tmp -name apk.static -exec cp {} "$APK_STATIC" \; 2>/dev/null || true
+            chmod +x "$APK_STATIC"
+          fi
+          for cache in "$APK_CACHE_X86" "$APK_CACHE_ARM"; do
+            mkdir -p "$cache"
+            APKARCH=x86_64; [ "$cache" = "$APK_CACHE_ARM" ] && APKARCH=aarch64
+            "$APK_STATIC" --cache-dir "$cache" --arch "$APKARCH" update \
+              --repository "https://dl-cdn.alpinelinux.org/alpine/edge/main" \
+              --repository "https://dl-cdn.alpinelinux.org/alpine/edge/community" \
+              --repository "https://mirror.postmarketos.org/postmarketos/main"
+          done
+
           # Install rootfs (no FDE, zap previous, password for automation)
           pmbootstrap --as-root install --password pmos --no-fde --zap
 
