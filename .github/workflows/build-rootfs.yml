@@ -79,10 +79,11 @@ jobs:
 
           cat "$CFG"
 
-          # Force-build mkinitfs and boot-deploy locally so the local version
-          # is used instead of the binary mirror version.  Binary mirror has
-          # 2.11.1 (incompatible with danila/courbet branch which expects 2.2.2).
+          # Force-build mkinitfs and boot-deploy locally with a higher version
+          # than the binary mirror, so apk prefers the local build.
           for pkg in postmarketos-mkinitfs boot-deploy; do
+            find "$WORK/cache_git/pmaports" -name APKBUILD -path "*$pkg*" \
+              -exec sed -i 's/^pkgver=[0-9.]*/pkgver=99.0.0/' {} +
             pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
           done
 
