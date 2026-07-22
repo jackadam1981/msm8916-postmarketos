@@ -94,7 +94,8 @@ jobs:
             chmod +x "$APK_STATIC"
           fi
           APK_ROOT="/tmp/apk-root"
-          mkdir -p "$APK_ROOT/lib/apk/db" "$APK_ROOT/etc/apk"
+          mkdir -p "$APK_ROOT/etc/apk"
+          "$APK_STATIC" --root "$APK_ROOT" --initdb
           for cache in "$APK_CACHE_X86" "$APK_CACHE_ARM"; do
             mkdir -p "$cache"
             APKARCH=x86_64; [ "$cache" = "$APK_CACHE_ARM" ] && APKARCH=aarch64
