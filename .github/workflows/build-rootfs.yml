@@ -106,6 +106,11 @@ jobs:
           echo "=== Verify: chroot/apk.py with_progress ==="
           grep -n 'with_progress' /opt/pmbootstrap/pmb/chroot/apk.py
 
+          # Fix: postmarketos-mkinitfs 2.2.2-r2 (local build) doesn't support
+          # the !optional suffix in file lists. Strip it from all .files.
+          echo "=== Fixing mkinitfs file lists: remove !optional suffix ==="
+          find /usr/share/mkinitfs/files/ -name '*.files' -exec sed -i 's/!optional//g' {} + 2>/dev/null || true
+
           # Install rootfs (no FDE, password for automation).
           set +e
           pmbootstrap --as-root install --password pmos --no-fde
