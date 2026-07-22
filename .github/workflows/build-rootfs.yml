@@ -45,18 +45,20 @@ jobs:
           # Create work directory with version marker
           mkdir -p "$WORK/cache_git"
           printf '8\n' > "$WORK/version"
-          git clone --depth=1 https://github.com/mainlining/pmaports.git \
+          # Clone pmaports from official GitLab (not stale GitHub mirror).
+          # pmbootstrap needs the full APKBUILD tree for dependencies
+          # (devicepkg-dev, soc-qcom-msm8916, etc).
+          git clone --depth=1 \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
             "$WORK/cache_git/pmaports"
-          # pmbootstrap expects origin to point to the upstream GitLab URL
-          # and that a remote-tracking branch origin/main exists with
-          # channels.cfg (read via 'git show origin/main:channels.cfg').
-          # Replace the URL and synthesize the ref locally.
-          git -C "$WORK/cache_git/pmaports" remote set-url origin \
-            https://gitlab.postmarketos.org/postmarketOS/pmaports.git
-          # pmbootstrap reads channels.cfg via 'git show origin/main:channels.cfg'.
-          # Synthesize the origin/main remote-tracking ref from current HEAD.
+          # pmbootstrap reads channels.cfg via
+          # 'git show origin/main:channels.cfg'. Synthesize the ref.
           git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
             "$(git -C "$WORK/cache_git/pmaports" rev-parse HEAD)"
+          # Overlay our local device definition for generic-zhihe on top of
+          # the cloned pmaports, so we control the device package independently.
+          cp -av "$GITHUB_WORKSPACE/config/device-generic-zhihe/"* \
+            "$WORK/cache_git/pmaports/device/testing/device-generic-zhihe/"
           echo "=== pmaports git refs ==="
           git -C "$WORK/cache_git/pmaports" show-ref | head -5
 
@@ -67,7 +69,7 @@ jobs:
             '[pmbootstrap]' \
             "work = $WORK" \
             "device = $DEVICE" \
-            'kernel = mainline' \
+            'kernel = ufi001c' \
             'ui = console' \
             'user = pmos' \
             'extra_space = 0' \
@@ -79,12 +81,11 @@ jobs:
 
           cat "$CFG"
 
-          # Force-build firmware, mkinitfs, and boot-deploy locally.
+          # Force-build device package, mkinitfs, and boot-deploy locally.
+          # Building device-generic-zhihe produces all subpackages
+          # (kernel-ufi001c, nonfree-firmware) from our local APKBUILD.
           # Mainline kernel (linux-postmarketos-qcom-msm8916) is available on mirror.
-          # These packages don't exist on the binary mirror (firmware)
-          # or have newer incompatible versions (mkinitfs 2.11.1, boot-deploy
-          # 0.23.0) vs what danila/courbet expects.
-          for pkg in device-generic-zhihe-nonfree-firmware \
+          for pkg in device-generic-zhihe \
             postmarketos-mkinitfs boot-deploy; do
             pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
           done
