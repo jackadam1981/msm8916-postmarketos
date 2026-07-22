@@ -91,7 +91,7 @@ jobs:
           done
 
           # Patch pmbootstrap: treat apk exit code 2 as non-fatal.
-          python3 -c "c=open('/opt/pmbootstrap/pmb/helpers/apk.py').read();c=c.replace('    pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)','    if p_apk.returncode != 2:\n        pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)');open('/opt/pmbootstrap/pmb/helpers/apk.py','w').write(c)"
+          echo "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKcGF0aCA9IFBhdGgoIi9vcHQvcG1ib290c3RyYXAvcG1iL2hlbHBlcnMvYXBrLnB5IikKYyA9IHBhdGgucmVhZF90ZXh0KCkKYyA9IGMucmVwbGFjZSgKICAgICIgICAgcG1iLmhlbHBlcnMucnVuX2NvcmUuY2hlY2tfcmV0dXJuX2NvZGUocF9hcGsucmV0dXJuY29kZSwgbG9nX21zZykiLAogICAgIiAgICBpZiBwX2Fway5yZXR1cm5jb2RlICE9IDI6XG4gICAgICAgIHBtYi5oZWxwZXJzLnJ1bl9jb3JlLmNoZWNrX3JldHVybl9jb2RlKHBfYXBrLnJldHVybmNvZGUsIGxvZ19tc2cpIgopCnBhdGgud3JpdGVfdGV4dChjKQ==" | base64 -d | python3
 
           # Install rootfs (no FDE, zap previous, password for automation).
           # With the wrapper above, exit code 2 from trigger errors is
