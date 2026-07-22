@@ -105,8 +105,9 @@ jobs:
           # Run() in helpers/apk.py has two branches: with_progress (handles exit 2) and
           # a direct pmb.chroot.root() call. Add check_return_code=False to the latter
           # to tolerate kmod depmod trigger errors (exit 1) on --virtual .pmbootstrap installs.
-          # DIAG: dump lines containing relevant patterns
-          grep -n 'def run\|pmb.chroot.root\|install_run_apk\|+ command\|with_progress' /opt/pmbootstrap/pmb/helpers/apk.py
+          # DIAG: find installed pmb package location, dump run() function
+          python3 -c "import pmb.helpers.apk; print(pmb.helpers.apk.__file__)"
+          python3 -c "import pmb.chroot.apk; print(pmb.chroot.apk.__file__)"
 
           # Patch pmbootstrap: skip apk return code check when exit code is 2.
           # Exit code 2 = trigger errors (kmod depmod) — packages ARE installed.
