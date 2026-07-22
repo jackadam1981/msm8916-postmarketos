@@ -77,13 +77,13 @@ jobs:
             '[mirrors]' \
             'alpine = https://dl-cdn.alpinelinux.org/alpine/edge/main' \
             'alpine_community = https://dl-cdn.alpinelinux.org/alpine/edge/community' \
+            'postmarketos = https://mirror.postmarketos.org/postmarketos/main/' \
             > "$CFG"
 
           cat "$CFG"
 
           # Install rootfs (no FDE, zap previous, password for automation)
-          # --offline: build everything from source since upstream pkg repos are unreachable
-          pmbootstrap --as-root --offline install --password pmos --no-fde --zap
+          pmbootstrap --as-root install --password pmos --no-fde --zap
 
           # Export images to /build/out/
           mkdir -p /build/out
