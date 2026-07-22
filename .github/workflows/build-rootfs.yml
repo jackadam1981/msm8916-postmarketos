@@ -79,17 +79,6 @@ jobs:
 
           cat "$CFG"
 
-          # Force-build packages locally so the .apk files exist in
-          # packages/edge/aarch64/ for apk.static to find.  Without --force,
-          # pmbootstrap checks the binary mirror and says "up to date" without
-          # actually building locally, then apk.static fails with "no such
-          # package" because it only has local repos.
-          for pkg in \
-            device-generic-zhihe-nonfree-firmware \
-            device-generic-zhihe-kernel-ufi001c; do
-            pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
-          done
-
           # Patch pmbootstrap: skip apk return code check when exit code is 2.
           # Exit code 2 = trigger errors (kmod depmod) — packages ARE installed.
           # Uses short-circuit or to stay on one line, avoiding multiline issues.
