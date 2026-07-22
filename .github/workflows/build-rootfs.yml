@@ -91,7 +91,8 @@ jobs:
           done
 
           # Patch pmbootstrap: treat apk exit code 2 as non-fatal.
-          echo "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKcGF0aCA9IFBhdGgoIi9vcHQvcG1ib290c3RyYXAvcG1iL2hlbHBlcnMvYXBrLnB5IikKYyA9IHBhdGgucmVhZF90ZXh0KCkKYyA9IGMucmVwbGFjZSgKICAgICIgICAgcG1iLmhlbHBlcnMucnVuX2NvcmUuY2hlY2tfcmV0dXJuX2NvZGUocF9hcGsucmV0dXJuY29kZSwgbG9nX21zZykiLAogICAgIiAgICBpZiBwX2Fway5yZXR1cm5jb2RlICE9IDI6XG4gICAgICAgIHBtYi5oZWxwZXJzLnJ1bl9jb3JlLmNoZWNrX3JldHVybl9jb2RlKHBfYXBrLnJldHVybmNvZGUsIGxvZ19tc2cpIgopCnBhdGgud3JpdGVfdGV4dChjKQ==" | base64 -d | python3
+          python3 -c "import base64,sys;exec(base64.b64decode(sys.argv[1]).decode())" \
+            "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKcGF0YSA9IFBhdGgoIi9vcHQvcG1ib290c3RyYXAvcG1iL2hlbHBlcnMvYXBrLnB5IikKYyA9IHBhdGEucmVhZF90ZXh0KCkKbmwgPSBjaHIoMTApCm9sZCA9ICIgICAgcG1iLmhlbHBlcnMucnVuX2NvcmUuY2hlY2tfcmV0dXJuX2NvZGUocF9hcGsucmV0dXJuY29kZSwgbG9nX21zZykiCm5ldyA9ICIgICAgaWYgcF9hcGsucmV0dXJuY29kZSAhPSAyOiIgKyBubCArICIgICAgICAgIHBtYi5oZWxwZXJzLnJ1bl9jb3JlLmNoZWNrX3JldHVybl9jb2RlKHBfYXBrLnJldHVybmNvZGUsIGxvZ19tc2cpIgpjID0gYy5yZXBsYWNlKG9sZCwgbmV3KQpwYXRhLndyaXRlX3RleHQoYyk="
 
           # Install rootfs (no FDE, zap previous, password for automation).
           # With the wrapper above, exit code 2 from trigger errors is
