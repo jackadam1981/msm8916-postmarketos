@@ -71,12 +71,8 @@ jobs:
             'ui = console' \
             'user = pmos' \
             'extra_space = 0' \
-            '' \
-            '[providers]' \
-            '' \
-            '[mirrors]' \
-            'alpine = https://dl-cdn.alpinelinux.org/alpine/' \
-            'postmarketos = https://mirror.postmarketos.org/postmarketos/' \
+            "mirror_alpine = https://dl-cdn.alpinelinux.org/alpine/" \
+            "mirrors_postmarketos = https://mirror.postmarketos.org/postmarketos/" \
             > "$CFG"
 
           cat "$CFG"
