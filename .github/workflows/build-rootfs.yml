@@ -102,12 +102,18 @@ jobs:
           # check_return_code=False to suppress the harmless trigger error.
           # The .pmbootstrap del command (third) also gets the same treatment
           # for consistency since it follows the same codepath.
-          # Use Python regex to handle multiline formatting (args may span lines)
+          # Run() in helpers/apk.py has two branches: with_progress (handles exit 2) and
+          # a direct pmb.chroot.root() call. Add check_return_code=False to the latter
+          # to tolerate kmod depmod trigger errors (exit 1) on --virtual .pmbootstrap installs.
           python3 << 'PYEOF'
           import re
-          c = open('/opt/pmbootstrap/pmb/chroot/apk.py').read()
-          c = re.sub(r'\+ command,\s*chroot\s*\)', '+ command, chroot, check_return_code=False)', c)
-          open('/opt/pmbootstrap/pmb/chroot/apk.py', 'w').write(c)
+          c = open('/opt/pmbootstrap/pmb/helpers/apk.py').read()
+          c = re.sub(
+              r'pmb\.chroot\.root\(\["apk",\s*"--no-progress"\s*\]\s*\+\s*command\s*,\s*chroot\s*\)',
+              'pmb.chroot.root(["apk", "--no-progress"] + command, chroot, check_return_code=False)',
+              c
+          )
+          open('/opt/pmbootstrap/pmb/helpers/apk.py', 'w').write(c)
           PYEOF
 
           # Patch pmbootstrap: skip apk return code check when exit code is 2.
