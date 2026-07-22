@@ -93,10 +93,12 @@ jobs:
             find /tmp -name apk.static -exec cp {} "$APK_STATIC" \; 2>/dev/null || true
             chmod +x "$APK_STATIC"
           fi
+          APK_ROOT="/tmp/apk-root"
+          mkdir -p "$APK_ROOT"
           for cache in "$APK_CACHE_X86" "$APK_CACHE_ARM"; do
             mkdir -p "$cache"
             APKARCH=x86_64; [ "$cache" = "$APK_CACHE_ARM" ] && APKARCH=aarch64
-            "$APK_STATIC" --cache-dir "$cache" --arch "$APKARCH" update \
+            "$APK_STATIC" --root "$APK_ROOT" --cache-dir "$cache" --arch "$APKARCH" update \
               --repository "https://dl-cdn.alpinelinux.org/alpine/edge/main" \
               --repository "https://dl-cdn.alpinelinux.org/alpine/edge/community" \
               --repository "https://mirror.postmarketos.org/postmarketos/main"
