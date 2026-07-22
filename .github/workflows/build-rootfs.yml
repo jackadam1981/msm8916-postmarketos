@@ -75,9 +75,8 @@ jobs:
             '[providers]' \
             '' \
             '[mirrors]' \
-            'alpine = https://dl-cdn.alpinelinux.org/alpine/edge/main' \
-            'alpine_community = https://dl-cdn.alpinelinux.org/alpine/edge/community' \
-            'postmarketos = https://mirror.postmarketos.org/postmarketos/main/' \
+            'alpine = https://dl-cdn.alpinelinux.org/alpine/' \
+            'postmarketos = https://mirror.postmarketos.org/postmarketos/' \
             > "$CFG"
 
           cat "$CFG"
