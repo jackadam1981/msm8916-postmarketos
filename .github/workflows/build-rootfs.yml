@@ -102,19 +102,16 @@ jobs:
           # check_return_code=False to suppress the harmless trigger error.
           # The .pmbootstrap del command (third) also gets the same treatment
           # for consistency since it follows the same codepath.
-          python3 -c "
-import re
-with open('/opt/pmbootstrap/pmb/chroot/apk.py') as f:
-    c = f.read()
-# In install_run_apk, the for-loop uses pmb.chroot.root for non-first
-# commands.  Add check_return_code=False to those calls.
-c = c.replace(
-    'pmb.chroot.root([\"apk\", \"--no-progress\"] + command, chroot)',
-    'pmb.chroot.root([\"apk\", \"--no-progress\"] + command, chroot, check_return_code=False)'
-)
-with open('/opt/pmbootstrap/pmb/chroot/apk.py', 'w') as f:
-    f.write(c)
-"
+          cat > /tmp/patch_apk.py << 'PYEOF'
+          import re
+          c = open('/opt/pmbootstrap/pmb/chroot/apk.py').read()
+          c = c.replace(
+              'pmb.chroot.root(["apk", "--no-progress"] + command, chroot)',
+              'pmb.chroot.root(["apk", "--no-progress"] + command, chroot, check_return_code=False)'
+          )
+          open('/opt/pmbootstrap/pmb/chroot/apk.py', 'w').write(c)
+          PYEOF
+          python3 /tmp/patch_apk.py
 
           # Patch pmbootstrap: skip apk return code check when exit code is 2.
           # Exit code 2 = trigger errors (kmod depmod) — packages ARE installed.
