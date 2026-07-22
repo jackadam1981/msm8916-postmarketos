@@ -41,8 +41,9 @@ jobs:
           echo "WORK=$WORK"
           echo "CFG=$CFG"
 
-          # Create work directory and clone pmaports from mainlining fork
+          # Create work directory with version marker
           mkdir -p "$WORK/cache_git"
+          printf '8\n' > "$WORK/version"
           git clone --depth=1 https://github.com/mainlining/pmaports.git \
             "$WORK/cache_git/pmaports"
           # pmbootstrap expects origin to point to the upstream GitLab URL
