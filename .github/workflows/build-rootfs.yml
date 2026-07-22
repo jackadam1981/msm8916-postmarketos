@@ -46,15 +46,15 @@ jobs:
           git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
             "$WORK/cache_git/pmaports"
 
-          # Create config file for pmbootstrap (work directory config)
-          cat > "$WORK/config.cfg" << CFGEOF
-[pmbootstrap]
-device = $DEVICE
-ui = console
-user = pmos
-work = $WORK
-extra_free_space = 0
-CFGEOF
+          # Create config file for pmbootstrap
+          printf '%s\n' \
+            '[pmbootstrap]' \
+            "device = $DEVICE" \
+            'ui = console' \
+            'user = pmos' \
+            "work = $WORK" \
+            'extra_free_space = 0' \
+            > "$WORK/config.cfg"
 
           # Init by creating minimal work dir and running install
           pmbootstrap --as-root --work="$WORK" install --no-fde --zap
