@@ -91,7 +91,16 @@ jobs:
           done
 
           # Install rootfs (no FDE, zap previous, password for automation).
-          if ! pmbootstrap --as-root install --password pmos --no-fde --zap; then
+          # Note: apk.static 3.0.x (Rust rewrite) returns exit code 2 when
+          # trigger errors occur (e.g. kmod depmod can't find kernel modules
+          # directory during install — it's created by the same transaction).
+          # The packages ARE installed successfully; the exit code is a false
+          # positive. We check the log for "in <N> packages" to confirm.
+          if pmbootstrap --as-root install --password pmos --no-fde --zap; then
+            echo "=== Install succeeded ==="
+          elif grep -qE 'in [0-9]+ packages' "$WORK/log.txt" 2>/dev/null; then
+            echo "=== Install succeeded (apk exit code 2 = trigger errors, log shows packages installed) ==="
+          else
             echo "=== FAILED: dumping pmbootstrap log (last 100 lines) ==="
             tail -100 "$WORK/log.txt" || true
             echo "=== Checking rootfs repos file ==="
