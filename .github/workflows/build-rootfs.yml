@@ -79,6 +79,13 @@ jobs:
 
           cat "$CFG"
 
+          # Force-build mkinitfs and boot-deploy locally so the local version
+          # is used instead of the binary mirror version.  Binary mirror has
+          # 2.11.1 (incompatible with danila/courbet branch which expects 2.2.2).
+          for pkg in postmarketos-mkinitfs boot-deploy; do
+            pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
+          done
+
           # Patch pmbootstrap: skip apk return code check when exit code is 2.
           # Exit code 2 = trigger errors (kmod depmod) — packages ARE installed.
           # Uses short-circuit or to stay on one line, avoiding multiline issues.
