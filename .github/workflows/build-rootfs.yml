@@ -102,17 +102,15 @@ jobs:
           # check_return_code=False to suppress the harmless trigger error.
           # The .pmbootstrap del command (third) also gets the same treatment
           # for consistency since it follows the same codepath.
-          # Make all apk commands use _apk_with_progress (handles exit codes 2 and 1)
-          # instead of the direct pmb.chroot.root() call which doesn't handle errors.
-          sed -i 's/with_progress=(i == 0)/with_progress=True/' \
-            /opt/pmbootstrap/pmb/chroot/apk.py
-
-          # Patch pmbootstrap: skip apk return code check when exit code is 2 or 1.
-          # Exit code 2 = kmod depmod trigger errors (regular install), exit code 1
-          # = same trigger errors but from --virtual installs (apk v3 behavior diff).
-          # Uses short-circuit or to stay on one line, avoiding multiline issues.
-          sed -i 's/pmb\.helpers\.run_core\.check_return_code(p_apk\.returncode, log_msg)/(p_apk.returncode == 2 or p_apk.returncode == 1) or pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)/' \
-            /opt/pmbootstrap/pmb/helpers/apk.py
+          # DIAG: verify file existence and grep relevant patterns
+          echo "=== Files ==="
+          ls -la /opt/pmbootstrap/pmb/helpers/apk.py /opt/pmbootstrap/pmb/chroot/apk.py 2>&1
+          echo "=== chroot/apk.py: with_progress ==="
+          grep -n 'with_progress' /opt/pmbootstrap/pmb/chroot/apk.py 2>&1 || echo "PATTERN NOT FOUND"
+          echo "=== chroot/apk.py: install_run_apk ==="
+          grep -n 'def install_run_apk\|pmb.helpers.apk.run' /opt/pmbootstrap/pmb/chroot/apk.py 2>&1 || echo "PATTERN NOT FOUND"
+          echo "=== helpers/apk.py: check_return_code ==="
+          grep -n 'check_return_code' /opt/pmbootstrap/pmb/helpers/apk.py 2>&1 || echo "PATTERN NOT FOUND"
 
           # Install rootfs (no FDE, password for automation).
           set +e
