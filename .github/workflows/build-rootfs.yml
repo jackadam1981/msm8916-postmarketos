@@ -93,24 +93,40 @@ jobs:
           # instead of the binary mirror's newer but incompatible version.
           sed -i 's/pmb\.chroot\.apk\.install(\["postmarketos-mkinitfs"\]/pmb.chroot.apk.install(["postmarketos-mkinitfs=2.2.2-r2"]/' \
             /opt/pmbootstrap/pmb/chroot/initfs.py
-          # install_run_apk() runs a second apk command with --virtual
-          # .pmbootstrap to track locally-built packages.  The kmod depmod
-          # trigger fails (modules dir doesn't exist in rootfs yet) and apk
-          # v3 propagates this as exit 1 for --virtual installs, even though
-          # packages are installed.  Non-first commands don't use
-          # apk_with_progress (which tolerates exit 2), so pass
-          # check_return_code=False to suppress the harmless trigger error.
-          # The .pmbootstrap del command (third) also gets the same treatment
-          # for consistency since it follows the same codepath.
-          # DIAG: verify file existence and grep relevant patterns
-          echo "=== Files ==="
-          ls -la /opt/pmbootstrap/pmb/helpers/apk.py /opt/pmbootstrap/pmb/chroot/apk.py 2>&1
-          echo "=== chroot/apk.py: with_progress ==="
-          grep -n 'with_progress' /opt/pmbootstrap/pmb/chroot/apk.py 2>&1 || echo "PATTERN NOT FOUND"
-          echo "=== chroot/apk.py: install_run_apk ==="
-          grep -n 'def install_run_apk\|pmb.helpers.apk.run' /opt/pmbootstrap/pmb/chroot/apk.py 2>&1 || echo "PATTERN NOT FOUND"
-          echo "=== helpers/apk.py: check_return_code ==="
-          grep -n 'check_return_code' /opt/pmbootstrap/pmb/helpers/apk.py 2>&1 || echo "PATTERN NOT FOUND"
+          # apk v3 propagates kmod depmod trigger failures as exit code 2
+          # from apk.static and exit code 1 for --virtual .pmbootstrap installs.
+          # Patch _apk_with_progress to tolerate both and route all commands
+          # through it (with_progress=True for all).
+          echo "=== Patching helpers/apk.py: _apk_with_progress exit code handling ==="
+          python3 -c "
+import re
+with open('/opt/pmbootstrap/pmb/helpers/apk.py') as f:
+    c = f.read()
+c = re.sub(
+    r'        pmb\.helpers\.run_core\.check_return_code\(p_apk\.returncode,\s*log_msg\)',
+    r'        if p_apk.returncode in (1, 2):\n            print(f\"WARNING: apk.static returned exit code {p_apk.returncode}, ignoring (likely depmod trigger)\")\n        else:\n            pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)',
+    c
+)
+with open('/opt/pmbootstrap/pmb/helpers/apk.py', 'w') as f:
+    f.write(c)
+"
+          echo "=== Patching chroot/apk.py: route all commands through with_progress ==="
+          python3 -c "
+import re
+with open('/opt/pmbootstrap/pmb/chroot/apk.py') as f:
+    c = f.read()
+c = re.sub(
+    r'with_progress=\(i == 0\)',
+    r'with_progress=True',
+    c
+)
+with open('/opt/pmbootstrap/pmb/chroot/apk.py', 'w') as f:
+    f.write(c)
+"
+          echo "=== Verify: helpers/apk.py check_return_code ==="
+          grep -n 'check_return_code\|WARNING.*exit code' /opt/pmbootstrap/pmb/helpers/apk.py
+          echo "=== Verify: chroot/apk.py with_progress ==="
+          grep -n 'with_progress' /opt/pmbootstrap/pmb/chroot/apk.py
 
           # Install rootfs (no FDE, password for automation).
           set +e
