@@ -104,11 +104,11 @@ jobs:
           # for consistency since it follows the same codepath.
           # Use Python regex to handle multiline formatting (args may span lines)
           python3 << 'PYEOF'
-import re
-c = open('/opt/pmbootstrap/pmb/chroot/apk.py').read()
-c = re.sub(r'\+ command,\s*chroot\s*\)', '+ command, chroot, check_return_code=False)', c)
-open('/opt/pmbootstrap/pmb/chroot/apk.py', 'w').write(c)
-PYEOF
+          import re
+          c = open('/opt/pmbootstrap/pmb/chroot/apk.py').read()
+          c = re.sub(r'\+ command,\s*chroot\s*\)', '+ command, chroot, check_return_code=False)', c)
+          open('/opt/pmbootstrap/pmb/chroot/apk.py', 'w').write(c)
+          PYEOF
 
           # Patch pmbootstrap: skip apk return code check when exit code is 2.
           # Exit code 2 = trigger errors (kmod depmod) — packages ARE installed.
