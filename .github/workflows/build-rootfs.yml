@@ -71,19 +71,29 @@ jobs:
             'ui = console' \
             'user = pmos' \
             'extra_space = 0' \
-            "mirror_alpine = https://dl-cdn.alpinelinux.org/alpine/" \
-            "mirrors_postmarketos = https://mirror.postmarketos.org/postmarketos/" \
+            '' \
+            '[mirrors]' \
+            'alpine = https://dl-cdn.alpinelinux.org/alpine/' \
+            'pmaports = https://mirror.postmarketos.org/postmarketos/' \
             > "$CFG"
 
           cat "$CFG"
 
+          # Build key packages locally first so apk.static can find them
+          # in the local packages dir without needing mirror --repository flags.
+          for pkg in \
+            postmarketos-base-nofde device-generic-zhihe-nonfree-firmware \
+            postmarketos-ui-console device-generic-zhihe device-generic-zhihe-kernel-ufi001c \
+            postmarketos-base postmarketos-mvcfg; do
+            pmbootstrap --as-root build --arch aarch64 "$pkg" 2>&1 || echo "WARNING: build $pkg failed, will try mirror"
+          done
+
           # Install rootfs (no FDE, zap previous, password for automation).
           if ! pmbootstrap --as-root install --password pmos --no-fde --zap; then
-            echo "=== FAILED: dumping pmbootstrap log ==="
-            cat "$WORK/log.txt" | tail -100
+            echo "=== FAILED: dumping pmbootstrap log (last 100 lines) ==="
+            tail -100 "$WORK/log.txt" || true
             echo "=== Checking rootfs repos file ==="
             cat "$WORK/chroot_rootfs_generic-zhihe/etc/apk/repositories" 2>/dev/null || echo "repos file not found"
-            echo "=== Checking cache dir ==="
             find "$WORK/cache_apk_aarch64" -name "APKINDEX.tar.gz" 2>/dev/null | head -10
             exit 1
           fi
