@@ -45,6 +45,18 @@ jobs:
           mkdir -p "$WORK/cache_git"
           git clone --depth=1 https://github.com/mainlining/pmaports.git \
             "$WORK/cache_git/pmaports"
+          # pmbootstrap expects origin to point to the upstream GitLab URL
+          # and that a remote-tracking branch origin/main exists with
+          # channels.cfg (read via 'git show origin/main:channels.cfg').
+          # Replace the URL and synthesize the ref locally.
+          git -C "$WORK/cache_git/pmaports" remote set-url origin \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git
+          # pmbootstrap reads channels.cfg via 'git show origin/main:channels.cfg'.
+          # Synthesize the origin/main remote-tracking ref from current HEAD.
+          git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
+            "$(git -C "$WORK/cache_git/pmaports" rev-parse HEAD)"
+          echo "=== pmaports git refs ==="
+          git -C "$WORK/cache_git/pmaports" show-ref | head -5
 
           # Create pmbootstrap_v3.cfg with ALL settings (work, device, kernel, user)
           # Using printf to avoid heredoc YAML parse issues
