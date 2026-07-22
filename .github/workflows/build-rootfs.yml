@@ -26,6 +26,10 @@ jobs:
         run: |
           set -eu
 
+          # Install required packages for pmbootstrap
+          apt-get update -qq
+          apt-get install -y -qq kpartx procps
+
           # Copy pmbootstrap config
           mkdir -p ~/.config
           cp config/pmbootstrap-build.cfg ~/.config/pmbootstrap.cfg

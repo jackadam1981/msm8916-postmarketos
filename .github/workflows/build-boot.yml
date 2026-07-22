@@ -51,7 +51,7 @@ jobs:
 
           # Create boot.img
           KERNEL=/build/kernel/arch/arm64/boot/Image.gz
-          DTB=/build/kernel/arch/arm64/boot/dts/qcom/msm8916-zhihe-ufi003-mb-v02.dtb
+          DTB=/build/kernel/arch/arm64/boot/dts/qcom/msm8916-thwc-ufi001c.dtb
           RAMDISK=/build/out/initramfs.gz
 
           # Append DTB to kernel
