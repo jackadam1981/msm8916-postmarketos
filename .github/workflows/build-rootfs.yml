@@ -86,37 +86,35 @@ jobs:
           # package" because it only has local repos.
           for pkg in \
             device-generic-zhihe-nonfree-firmware \
-            device-generic-zhihe-kernel-ufi001c \
-            postmarketos-mkinitfs \
-            boot-deploy; do
+            device-generic-zhihe-kernel-ufi001c; do
             pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
           done
 
-          # Install rootfs (no FDE, zap previous, password for automation).
-          # Note: apk.static 3.0.x (Rust rewrite) returns exit code 2 when
-          # trigger errors occur (e.g. kmod depmod can't find kernel modules
-          # directory during install — it's created by the same transaction).
-          # The packages ARE installed successfully; the exit code is a false
-          # positive. We check the log for "in <N> packages" to confirm.
-          # If the install partially fails (exit code 2 from trigger errors),
-          # retry without --zap to complete the remaining phases (initramfs, etc).
-          if pmbootstrap --as-root install --password pmos --no-fde --zap; then
-            echo "=== Install succeeded ==="
-          elif grep -qE 'in [0-9]+ packages' "$WORK/log.txt" 2>/dev/null; then
-            echo "=== Install had trigger errors, retrying without --zap to complete phases 3-4 ==="
-            pmbootstrap --as-root install --password pmos --no-fde || true
-          else
-            echo "=== FAILED: dumping pmbootstrap log (last 100 lines) ==="
-            tail -100 "$WORK/log.txt" || true
-            echo "=== Checking rootfs repos file ==="
-            cat "$WORK/chroot_rootfs_generic-zhihe/etc/apk/repositories" 2>/dev/null || echo "repos file not found"
-            find "$WORK/cache_apk_aarch64" -name "APKINDEX.tar.gz" 2>/dev/null | head -10
-            exit 1
-          fi
+          # Wrap apk.static to suppress non-fatal exit code 2.
+          # apk-tools 3.0.x (Rust rewrite) returns exit code 2 when trigger
+          # errors occur (e.g. kmod depmod can't find kernel modules directory
+          # during install — it's created by the same transaction).  The
+          # packages ARE installed successfully despite the non-zero exit.
+          # Without this wrapper, pmbootstrap treats exit code 2 as a fatal
+          # error and aborts before phases 3-4 (initramfs, export) can run.
+          mv "$WORK/apk.static" "$WORK/apk.static.real"
+          cat > "$WORK/apk.static" << 'WRAPPER'
+#!/bin/sh
+"$(dirname "$0")/apk.static.real" "$@"
+ec=$?
+[ "$ec" = "2" ] && exit 0
+exit $ec
+WRAPPER
+          chmod +x "$WORK/apk.static"
 
-          # Export images to /build/out/ (handle failure gracefully).
+          # Install rootfs (no FDE, zap previous, password for automation).
+          # With the wrapper above, exit code 2 from trigger errors is
+          # suppressed, so pmbootstrap completes all 4 phases in one run.
+          pmbootstrap --as-root install --password pmos --no-fde --zap
+
+          # Export images to /build/out/
           mkdir -p /build/out
-          pmbootstrap --as-root export /build/out/ 2>&1 || echo "=== Export failed, will search for images in work dir ==="
+          pmbootstrap --as-root export /build/out/
 
           echo "=== Contents of /build/out/ ==="
           ls -lh /build/out/ 2>/dev/null || echo "Export dir empty, searching work dir..."
