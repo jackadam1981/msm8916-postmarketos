@@ -93,6 +93,12 @@ jobs:
           # instead of the binary mirror's newer but incompatible version.
           sed -i 's/pmb\.chroot\.apk\.install(\["postmarketos-mkinitfs"\]/pmb.chroot.apk.install(["postmarketos-mkinitfs=2.2.2-r2"]/' \
             /opt/pmbootstrap/pmb/chroot/initfs.py
+          # install_run_apk uses --virtual .pmbootstrap with -u (upgrade) to
+          # force local .apk over repo packages.  apk v3 doesn't allow
+          # same-version reinstall with -u, breaking the second command.
+          # Removing -u lets it install fresh (or skip if already present).
+          sed -i 's/\["add", "-u", "--virtual", "\.pmbootstrap"\]/["add", "--virtual", ".pmbootstrap"]/' \
+            /opt/pmbootstrap/pmb/chroot/apk.py
 
           # Patch pmbootstrap: skip apk return code check when exit code is 2.
           # Exit code 2 = trigger errors (kmod depmod) — packages ARE installed.
