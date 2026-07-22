@@ -32,7 +32,7 @@ jobs:
           set -eu
 
           apt-get update -qq
-          apt-get install -y -qq kpartx procps
+          apt-get install -y -qq kpartx procps kmod
 
           WORK="$HOME/.local/var/pmbootstrap"
           CFG="$HOME/.config/pmbootstrap_v3.cfg"
