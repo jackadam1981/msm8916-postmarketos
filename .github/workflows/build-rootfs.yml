@@ -21,7 +21,6 @@ jobs:
 
       - name: Update pmbootstrap to latest
         run: |
-          # Container has old pmbootstrap from gitlab.com (moved to postmarketos.org)
           rm -rf /opt/pmbootstrap
           git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /opt/pmbootstrap
           ln -sf /opt/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
@@ -31,26 +30,40 @@ jobs:
         run: |
           set -eu
 
-          # Install required packages for pmbootstrap
           apt-get update -qq
-          apt-get install -y -qq kpartx procps
+          apt-get install -y -qq kpartx procps git
 
-          # Copy pmbootstrap config
-          mkdir -p ~/.config
-          cp config/pmbootstrap-build.cfg ~/.config/pmbootstrap.cfg
+          # Parse device vendor/codename from config
+          DEVICE=$(grep '^device' config/pmbootstrap-build.cfg | cut -d= -f2 | tr -d ' ')
+          VENDOR="${DEVICE%%-*}"
+          CODENAME="${DEVICE#*-}"
+          echo "Device: $DEVICE (vendor=$VENDOR codename=$CODENAME)"
 
-          # pmbootstrap init (non-interactive, config already in place)
-          yes '' | pmbootstrap --as-root -y --work=/build/pmbootstrap init
+          WORK=/build/pmbootstrap
+          mkdir -p "$WORK/cache_git" "$WORK/chroot_native"
 
-          # Install rootfs (no FDE, zap previous build)
-          pmbootstrap --as-root -y --work=/build/pmbootstrap install --no-fde --zap
+          # Clone pmaports
+          git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
+            "$WORK/cache_git/pmaports"
+
+          # Create config file for pmbootstrap (work directory config)
+          cat > "$WORK/config.cfg" << CFGEOF
+[pmbootstrap]
+device = $DEVICE
+ui = console
+user = pmos
+work = $WORK
+extra_free_space = 0
+CFGEOF
+
+          # Init by creating minimal work dir and running install
+          pmbootstrap --as-root --work="$WORK" install --no-fde --zap
 
           # Collect outputs
-          DEVICE="zhihe-ufi003-mb-v02"
           mkdir -p /build/out
 
-          BOOT_IMG="/build/pmbootstrap/chroot_native/home/pmos/rootfs/${DEVICE}-boot.img"
-          ROOTFS_IMG="/build/pmbootstrap/chroot_native/home/pmos/rootfs/${DEVICE}.img"
+          BOOT_IMG="$WORK/chroot_native/home/pmos/rootfs/${DEVICE}-boot.img"
+          ROOTFS_IMG="$WORK/chroot_native/home/pmos/rootfs/${DEVICE}.img"
 
           if [ -f "$BOOT_IMG" ]; then
             cp "$BOOT_IMG" /build/out/boot.img
