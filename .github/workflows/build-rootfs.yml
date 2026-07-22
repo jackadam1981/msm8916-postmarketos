@@ -79,18 +79,20 @@ jobs:
 
           cat "$CFG"
 
-          # Force-build mkinitfs and boot-deploy locally (original versions).
-          # Binary mirror has newer versions (2.11.1 / 0.23.0) which are
-          # incompatible with this danila/courbet branch.
-          for pkg in postmarketos-mkinitfs boot-deploy; do
+          # Force-build kernel, firmware, mkinitfs, and boot-deploy locally.
+          # These packages don't exist on the binary mirror (kernel/firmware)
+          # or have newer incompatible versions (mkinitfs 2.11.1, boot-deploy
+          # 0.23.0) vs what danila/courbet expects.
+          # WARNING: kernel build takes ~15 min, and the binary mirror doesn't
+          # serve custom device packages.
+          for pkg in device-generic-zhihe-kernel-ufi001c device-generic-zhihe-nonfree-firmware \
+            postmarketos-mkinitfs boot-deploy; do
             pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
           done
-          # apk picks the highest version across repos, so binary mirror wins.
-          # Pin exact versions via sed to make apk use the local builds.
+          # Pin mkinitfs version so apk uses the local build (2.2.2-r2)
+          # instead of the binary mirror's newer but incompatible version.
           sed -i 's/pmb\.chroot\.apk\.install(\["postmarketos-mkinitfs"\]/pmb.chroot.apk.install(["postmarketos-mkinitfs=2.2.2-r2"]/' \
             /opt/pmbootstrap/pmb/chroot/initfs.py
-          sed -i 's/install_packages = pmb\.config\.install_device_packages + \["device-" + device\]/install_packages = pmb.config.install_device_packages + ["device-" + device] + ["boot-deploy=0.12-r0"]/' \
-            /opt/pmbootstrap/pmb/install/_install.py
 
           # Patch pmbootstrap: skip apk return code check when exit code is 2.
           # Exit code 2 = trigger errors (kmod depmod) — packages ARE installed.
@@ -98,9 +100,9 @@ jobs:
           sed -i 's/pmb\.helpers\.run_core\.check_return_code(p_apk\.returncode, log_msg)/(p_apk.returncode == 2) or pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)/' \
             /opt/pmbootstrap/pmb/helpers/apk.py
 
-          # Install rootfs (no FDE, zap previous, password for automation).
+          # Install rootfs (no FDE, password for automation).
           set +e
-          pmbootstrap --as-root install --password pmos --no-fde --zap
+          pmbootstrap --as-root install --password pmos --no-fde
           RC=$?
           set -e
           if [ $RC -ne 0 ]; then
