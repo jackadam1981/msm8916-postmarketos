@@ -102,17 +102,16 @@ jobs:
           # check_return_code=False to suppress the harmless trigger error.
           # The .pmbootstrap del command (third) also gets the same treatment
           # for consistency since it follows the same codepath.
-          # Run() in helpers/apk.py has two branches: with_progress (handles exit 2) and
-          # a direct pmb.chroot.root() call. Add check_return_code=False to the latter
-          # to tolerate kmod depmod trigger errors (exit 1) on --virtual .pmbootstrap installs.
-          # DIAG: find installed pmb package location, dump run() function
-          python3 -c "import pmb.helpers.apk; print(pmb.helpers.apk.__file__)"
-          python3 -c "import pmb.chroot.apk; print(pmb.chroot.apk.__file__)"
+          # Make all apk commands use _apk_with_progress (handles exit codes 2 and 1)
+          # instead of the direct pmb.chroot.root() call which doesn't handle errors.
+          sed -i 's/with_progress=(i == 0)/with_progress=True/' \
+            /opt/pmbootstrap/pmb/chroot/apk.py
 
-          # Patch pmbootstrap: skip apk return code check when exit code is 2.
-          # Exit code 2 = trigger errors (kmod depmod) — packages ARE installed.
+          # Patch pmbootstrap: skip apk return code check when exit code is 2 or 1.
+          # Exit code 2 = kmod depmod trigger errors (regular install), exit code 1
+          # = same trigger errors but from --virtual installs (apk v3 behavior diff).
           # Uses short-circuit or to stay on one line, avoiding multiline issues.
-          sed -i 's/pmb\.helpers\.run_core\.check_return_code(p_apk\.returncode, log_msg)/(p_apk.returncode == 2) or pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)/' \
+          sed -i 's/pmb\.helpers\.run_core\.check_return_code(p_apk\.returncode, log_msg)/(p_apk.returncode == 2 or p_apk.returncode == 1) or pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)/' \
             /opt/pmbootstrap/pmb/helpers/apk.py
 
           # Install rootfs (no FDE, password for automation).
