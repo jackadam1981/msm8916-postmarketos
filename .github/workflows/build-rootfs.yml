@@ -45,9 +45,7 @@ jobs:
           # Create work directory with version marker
           mkdir -p "$WORK/cache_git"
           printf '8\n' > "$WORK/version"
-          # Clone pmaports from official GitLab (not stale GitHub mirror).
-          # pmbootstrap needs the full APKBUILD tree for dependencies
-          # (devicepkg-dev, soc-qcom-msm8916, etc).
+          # Clone pmaports from official GitLab (up to date).
           git clone --depth=1 \
             https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
             "$WORK/cache_git/pmaports"
@@ -55,10 +53,6 @@ jobs:
           # 'git show origin/main:channels.cfg'. Synthesize the ref.
           git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
             "$(git -C "$WORK/cache_git/pmaports" rev-parse HEAD)"
-          # Overlay our local device definition for generic-zhihe on top of
-          # the cloned pmaports, so we control the device package independently.
-          cp -av "$GITHUB_WORKSPACE/config/device-generic-zhihe/"* \
-            "$WORK/cache_git/pmaports/device/testing/device-generic-zhihe/"
           echo "=== pmaports git refs ==="
           git -C "$WORK/cache_git/pmaports" show-ref | head -5
 
@@ -81,12 +75,9 @@ jobs:
 
           cat "$CFG"
 
-          # Force-build device package, mkinitfs, and boot-deploy locally.
-          # Building device-generic-zhihe produces all subpackages
-          # (kernel-ufi001c, nonfree-firmware) from our local APKBUILD.
-          # Mainline kernel (linux-postmarketos-qcom-msm8916) is available on mirror.
-          for pkg in device-generic-zhihe \
-            postmarketos-mkinitfs boot-deploy; do
+          # Force-build mkinitfs and boot-deploy locally (newer mirror versions
+          # are incompatible with danila/courbet's device kernel config).
+          for pkg in postmarketos-mkinitfs boot-deploy; do
             pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
           done
           # Pin mkinitfs version so apk uses the local build (2.2.2-r2)
