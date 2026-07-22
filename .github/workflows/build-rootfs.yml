@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: jackadam/pmos_build:260715
+      options: --privileged
     steps:
       - uses: actions/checkout@v4
         with:
