@@ -67,7 +67,7 @@ jobs:
             '[pmbootstrap]' \
             "work = $WORK" \
             "device = $DEVICE" \
-            'kernel = ufi001c' \
+            'kernel = mainline' \
             'ui = console' \
             'user = pmos' \
             'extra_space = 0' \
@@ -79,13 +79,12 @@ jobs:
 
           cat "$CFG"
 
-          # Force-build kernel, firmware, mkinitfs, and boot-deploy locally.
-          # These packages don't exist on the binary mirror (kernel/firmware)
+          # Force-build firmware, mkinitfs, and boot-deploy locally.
+          # Mainline kernel (linux-postmarketos-qcom-msm8916) is available on mirror.
+          # These packages don't exist on the binary mirror (firmware)
           # or have newer incompatible versions (mkinitfs 2.11.1, boot-deploy
           # 0.23.0) vs what danila/courbet expects.
-          # WARNING: kernel build takes ~15 min, and the binary mirror doesn't
-          # serve custom device packages.
-          for pkg in device-generic-zhihe-kernel-ufi001c device-generic-zhihe-nonfree-firmware \
+          for pkg in device-generic-zhihe-nonfree-firmware \
             postmarketos-mkinitfs boot-deploy; do
             pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
           done
