@@ -77,24 +77,16 @@ jobs:
 
           cat "$CFG"
 
-          # Add [mirrors] section so pmbootstrap passes proper --repository flags
-          # to apk.static during rootfs install.  Keys match pmbootstrap v3:
-          #   mirrors.alpine:  https://dl-cdn.alpinelinux.org/alpine/
-          #   mirrors.pmaports: https://mirror.postmarketos.org/postmarketos/
-          # pmbootstrap knows the correct per-repo path (alpine appends
-          # edge/main/<arch>, pmaports appends main/<arch> for the edge channel).
-          {
-            printf '%s\n' \
-              '' \
-              '[mirrors]' \
-              "alpine = https://dl-cdn.alpinelinux.org/alpine/" \
-              "pmaports = https://mirror.postmarketos.org/postmarketos/"
-          } >> "$CFG"
-          cat "$CFG"
-          echo "---"
-
-          # Install rootfs (no FDE, zap previous, password for automation)
-          pmbootstrap --as-root install --password pmos --no-fde --zap
+          # Install rootfs (no FDE, zap previous, password for automation).
+          if ! pmbootstrap --as-root install --password pmos --no-fde --zap; then
+            echo "=== FAILED: dumping pmbootstrap log ==="
+            cat "$WORK/log.txt" | tail -100
+            echo "=== Checking rootfs repos file ==="
+            cat "$WORK/chroot_rootfs_generic-zhihe/etc/apk/repositories" 2>/dev/null || echo "repos file not found"
+            echo "=== Checking cache dir ==="
+            find "$WORK/cache_apk_aarch64" -name "APKINDEX.tar.gz" 2>/dev/null | head -10
+            exit 1
+          fi
 
           # Export images to /build/out/
           mkdir -p /build/out
