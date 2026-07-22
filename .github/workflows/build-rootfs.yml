@@ -31,53 +31,59 @@ jobs:
           set -eu
 
           apt-get update -qq
-          apt-get install -y -qq kpartx procps git
+          apt-get install -y -qq kpartx procps
 
-          # Parse device vendor/codename from config
-          DEVICE=$(grep '^device' config/pmbootstrap-build.cfg | cut -d= -f2 | tr -d ' ')
-          VENDOR="${DEVICE%%-*}"
-          CODENAME="${DEVICE#*-}"
-          echo "Device: $DEVICE (vendor=$VENDOR codename=$CODENAME)"
+          WORK="$HOME/.local/var/pmbootstrap"
+          CFG="$HOME/.config/pmbootstrap_v3.cfg"
+          DEVICE="generic-zhihe"
 
-          WORK=/build/pmbootstrap
-          mkdir -p "$WORK/cache_git" "$WORK/chroot_native"
+          echo "HOME=$HOME"
+          echo "WORK=$WORK"
+          echo "CFG=$CFG"
 
-          # Clone pmaports
-          git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
+          # Create work directory and clone pmaports from mainlining fork
+          mkdir -p "$WORK/cache_git"
+          git clone --depth=1 https://github.com/mainlining/pmaports.git \
             "$WORK/cache_git/pmaports"
 
-          # Create config file for pmbootstrap
+          # Create pmbootstrap_v3.cfg with ALL settings (work, device, kernel, user)
+          # Using printf to avoid heredoc YAML parse issues
+          mkdir -p "$HOME/.config"
           printf '%s\n' \
             '[pmbootstrap]' \
+            "work = $WORK" \
             "device = $DEVICE" \
+            'kernel = ufi001c' \
             'ui = console' \
             'user = pmos' \
-            "work = $WORK" \
-            'extra_free_space = 0' \
-            > "$WORK/config.cfg"
+            'extra_space = 0' \
+            '' \
+            '[providers]' \
+            '' \
+            '[mirrors]' \
+            > "$CFG"
 
-          # Init by creating minimal work dir and running install
-          pmbootstrap --as-root --work="$WORK" install --no-fde --zap
+          cat "$CFG"
 
-          # Collect outputs
+          # Install rootfs (no FDE, zap previous, password for automation)
+          pmbootstrap --as-root install --password pmos --no-fde --zap
+
+          # Export images to /build/out/
           mkdir -p /build/out
+          pmbootstrap --as-root export /build/out/
 
-          BOOT_IMG="$WORK/chroot_native/home/pmos/rootfs/${DEVICE}-boot.img"
-          ROOTFS_IMG="$WORK/chroot_native/home/pmos/rootfs/${DEVICE}.img"
+          echo "=== Contents of /build/out/ ==="
+          ls -lh /build/out/ 2>/dev/null || echo "Export dir empty, searching work dir..."
 
-          if [ -f "$BOOT_IMG" ]; then
-            cp "$BOOT_IMG" /build/out/boot.img
-            echo "boot.img: $(ls -lh /build/out/boot.img)"
-          else
-            echo "WARNING: boot.img not found at $BOOT_IMG"
-          fi
+          # Fallback: search work dir for img/boot files
+          find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
+            -not -path "*/cache*" 2>/dev/null | head -20
 
-          if [ -f "$ROOTFS_IMG" ]; then
-            cp "$ROOTFS_IMG" /build/out/rootfs.img
-            echo "rootfs.img: $(ls -lh /build/out/rootfs.img)"
-          else
-            echo "WARNING: rootfs.img not found at $ROOTFS_IMG"
-          fi
+          # Copy any found images
+          for f in $(find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
+            -not -path "*/cache*" 2>/dev/null); do
+            cp "$f" /build/out/ 2>/dev/null || true
+          done
 
           ls -lh /build/out/
 
