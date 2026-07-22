@@ -99,11 +99,19 @@ jobs:
             /opt/pmbootstrap/pmb/helpers/apk.py
 
           # Install rootfs (no FDE, zap previous, password for automation).
+          set +e
           pmbootstrap --as-root install --password pmos --no-fde --zap
+          RC=$?
+          set -e
+          if [ $RC -ne 0 ]; then
+            echo "=== pmbootstrap log.txt ==="
+            cat "$HOME/.local/var/pmbootstrap/log.txt" 2>/dev/null || true
+            exit $RC
+          fi
 
           # Export images to /build/out/
           mkdir -p /build/out
-          pmbootstrap --as-root export /build/out/
+          pmbootstrap --as-root export /build/out/ 2>&1
 
           echo "=== Contents of /build/out/ ==="
           ls -lh /build/out/ 2>/dev/null || echo "Export dir empty, searching work dir..."
