@@ -40,7 +40,7 @@ jobs:
           cp config/pmbootstrap-build.cfg ~/.config/pmbootstrap.cfg
 
           # pmbootstrap init (non-interactive, config already in place)
-          printf '\n' | pmbootstrap --as-root -y --work=/build/pmbootstrap init
+          yes '' | pmbootstrap --as-root -y --work=/build/pmbootstrap init
 
           # Install rootfs (no FDE, zap previous build)
           pmbootstrap --as-root -y --work=/build/pmbootstrap install --no-fde --zap
