@@ -100,7 +100,7 @@ jobs:
           echo "=== Patching helpers/apk.py: _apk_with_progress exit code handling ==="
           python3 -c "c=open('/opt/pmbootstrap/pmb/helpers/apk.py').read();old='        pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)';new='        if p_apk.returncode in (1, 2):\n            print(f\"WARNING: apk.static returned exit code {p_apk.returncode}, ignoring (likely depmod trigger)\")\n        else:\n            pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)';assert old in c, 'Pattern not found in helpers/apk.py!';c=c.replace(old,new);open('/opt/pmbootstrap/pmb/helpers/apk.py','w').write(c)"
           echo "=== Patching chroot/apk.py: route all commands through with_progress ==="
-          python3 -c "import re;c=open('/opt/pmbootstrap/pmb/chroot/apk.py').read();c=re.sub(r'with_progress=\(i == 0\)',r'with_progress=True',c);open('/opt/pmbootstrap/pmb/chroot/apk.py','w').write(c)"
+          python3 -c "c=open('/opt/pmbootstrap/pmb/chroot/apk.py').read();c=c.replace('with_progress=(i == 0)','with_progress=True').replace('with_progress=False','with_progress=True');open('/opt/pmbootstrap/pmb/chroot/apk.py','w').write(c)"
           echo "=== Verify: helpers/apk.py check_return_code ==="
           grep -n 'check_return_code\|WARNING.*exit code' /opt/pmbootstrap/pmb/helpers/apk.py
           echo "=== Verify: chroot/apk.py with_progress ==="
