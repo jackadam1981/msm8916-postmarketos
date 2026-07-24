@@ -98,10 +98,6 @@ jobs:
           for pkg in postmarketos-mkinitfs boot-deploy; do
             pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
           done
-          # Pin mkinitfs version so apk uses the local build (2.2.2-r2)
-          # instead of the binary mirror's newer but incompatible version.
-          sed -i 's/pmb\.chroot\.apk\.install(\["postmarketos-mkinitfs"\]/pmb.chroot.apk.install(["postmarketos-mkinitfs=2.2.2-r2"]/' \
-            /opt/pmbootstrap/pmb/chroot/initfs.py
           # apk v3 propagates kmod depmod trigger failures as exit code 2
           # from apk.static and exit code 1 for --virtual .pmbootstrap installs.
           # Patch _apk_with_progress to tolerate both and route all commands
