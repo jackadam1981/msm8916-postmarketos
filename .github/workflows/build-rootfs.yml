@@ -93,12 +93,7 @@ jobs:
 
           cat "$CFG"
 
-          # Force-build mkinitfs and boot-deploy locally (newer mirror versions
-          # are incompatible with danila/courbet's device kernel config).
-          for pkg in postmarketos-mkinitfs boot-deploy; do
-            pmbootstrap --as-root build --force --arch aarch64 "$pkg" 2>&1 || echo "WARNING: force-build $pkg failed"
-          done
-          # apk v3 propagates kmod depmod trigger failures as exit code 2
+          # Install rootfs (no FDE, password for automation).
           # from apk.static and exit code 1 for --virtual .pmbootstrap installs.
           # Patch _apk_with_progress to tolerate both and route all commands
           # through it (with_progress=True for all).
