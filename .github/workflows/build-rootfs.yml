@@ -93,12 +93,6 @@ jobs:
 
           cat "$CFG"
 
-          # Force-build kernel locally: mirror's pre-built linux-postmarketos-qcom-msm8916
-          # does not include our DTB (msm8916-zhihe-ufi003-mb-v02.dtb). Building from source
-          # ensures the DTB is present for boot-deploy to append.
-          echo "=== Building kernel (linux-postmarketos-qcom-msm8916) from source ==="
-          pmbootstrap --as-root build --force --arch aarch64 linux-postmarketos-qcom-msm8916 2>&1
-
           # Install rootfs (no FDE, password for automation).
           # from apk.static and exit code 1 for --virtual .pmbootstrap installs.
           # Patch _apk_with_progress to tolerate both and route all commands

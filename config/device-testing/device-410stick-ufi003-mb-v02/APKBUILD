@@ -17,7 +17,8 @@ depends="
 "
 _pmb_select="soc-qcom-msm8916-rproc"
 makedepends="devicepkg-dev"
-source="deviceinfo"
+source="deviceinfo
+	msm8916-zhihe-ufi003-mb-v02.dtb"
 
 build() {
 	devicepkg_build $startdir $pkgname
@@ -25,8 +26,11 @@ build() {
 
 package() {
 	devicepkg_package $startdir $pkgname
+	install -Dm644 "$srcdir"/msm8916-zhihe-ufi003-mb-v02.dtb \
+		"$pkgdir"/usr/share/dtb/qcom/msm8916-zhihe-ufi003-mb-v02.dtb
 }
 
 sha512sums="
 b77694f245e613d603d6e8321fd06ecc155829723a10188baea7b8ce781426e81be9cb6455fd679245d70416a3de6ae23ccc4854d50fc3a648bd7d4e9406c070  deviceinfo
+23c10e8e6f48e98946325f7add8f2ea5f47a06e26e1cc4b1069542ad52aa4ff65b575879d8c409f163eb0ec536fbeb3ec61eab66f1a189f7addc8eee819c079b  msm8916-zhihe-ufi003-mb-v02.dtb
 "
