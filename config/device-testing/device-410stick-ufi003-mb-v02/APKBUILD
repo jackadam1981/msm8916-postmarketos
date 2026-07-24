@@ -1,7 +1,7 @@
-# Device package for Zhihe UFI003-02 (MSM8916) -- local overlay
+# Device package for 410stick UFI003-02 (MSM8916) -- local overlay
 # Reference: <https://postmarketos.org/devicepkg>
-pkgname=device-zhihe-ufi003-mb-v02
-pkgdesc="Device package for Zhihe UFI003-02 LTE dongle (MSM8916)"
+pkgname=device-410stick-ufi003-mb-v02
+pkgdesc="Device package for 410stick UFI003-02 LTE dongle (MSM8916)"
 pkgver=1
 pkgrel=0
 url="https://postmarketos.org"
@@ -28,5 +28,5 @@ package() {
 }
 
 sha512sums="
-48b9e62ee7227f2df97787b90cfeee2cec9bda8955aabbd93d29aa95b34ea659389869dd1f8e353a3ce19a9f7641451e648c35079d14edfb827d4df329f8ea85  deviceinfo
+b77694f245e613d603d6e8321fd06ecc155829723a10188baea7b8ce781426e81be9cb6455fd679245d70416a3de6ae23ccc4854d50fc3a648bd7d4e9406c070  deviceinfo
 "

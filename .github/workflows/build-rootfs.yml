@@ -37,7 +37,7 @@ jobs:
 
           WORK="$HOME/.local/var/pmbootstrap"
           CFG="$HOME/.config/pmbootstrap_v3.cfg"
-          DEVICE="zhihe-ufi003-mb-v02"
+          DEVICE="410stick-ufi003-mb-v02"
 
           echo "HOME=$HOME"
           echo "WORK=$WORK"

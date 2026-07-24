@@ -8,7 +8,7 @@ set -eu
 : "${CFG:=/repo/config/pmbootstrap-build.cfg}"
 : "${PMAPORTS_DIR:=/build/pmaports}"
 : "${DEVICE_OVERLAY:=/repo/config/device-testing}"
-: "${DEVICE:=zhihe-ufi003-mb-v02}"
+: "${DEVICE:=410stick-ufi003-mb-v02}"
 
 echo "=== Building pmOS rootfs ==="
 echo "OUTPUT=$OUTPUT  WORK=$PMBOOTSTRAP_WORK  DEVICE=$DEVICE"
