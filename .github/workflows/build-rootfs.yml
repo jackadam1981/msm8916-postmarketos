@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/build-rootfs.yml'
       - 'config/pmbootstrap-build.cfg'
+      - 'config/device-testing/**'
   workflow_dispatch:
 
 jobs:
@@ -36,7 +37,7 @@ jobs:
 
           WORK="$HOME/.local/var/pmbootstrap"
           CFG="$HOME/.config/pmbootstrap_v3.cfg"
-          DEVICE="generic-zhihe"
+          DEVICE="zhihe-ufi003-mb-v02"
 
           echo "HOME=$HOME"
           echo "WORK=$WORK"
@@ -49,6 +50,22 @@ jobs:
           git clone --depth=1 \
             https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
             "$WORK/cache_git/pmaports"
+          # Merge local device overlay into pmaports
+          OVERLAY_SRC="$GITHUB_WORKSPACE/config/device-testing"
+          if [ -d "$OVERLAY_SRC" ]; then
+            echo "=== Merging local device overlay from $OVERLAY_SRC ==="
+            for device_dir in "$OVERLAY_SRC"/*/; do
+              [ -d "$device_dir" ] || continue
+              devname=$(basename "$device_dir")
+              echo "  Adding device: $devname"
+              cp -r "$device_dir" "$WORK/cache_git/pmaports/device/testing/$devname"
+            done
+          fi
+          # Verify
+          if [ ! -f "$WORK/cache_git/pmaports/device/testing/${DEVICE}/deviceinfo" ]; then
+            echo "ERROR: Device overlay not found for $DEVICE"
+            exit 1
+          fi
           # pmbootstrap reads channels.cfg via
           # 'git show origin/main:channels.cfg'. Synthesize the ref.
           git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
@@ -56,14 +73,13 @@ jobs:
           echo "=== pmaports git refs ==="
           git -C "$WORK/cache_git/pmaports" show-ref | head -5
 
-          # Create pmbootstrap_v3.cfg with ALL settings (work, device, kernel, user)
+          # Create pmbootstrap_v3.cfg with ALL settings (work, device, user)
           # Using printf to avoid heredoc YAML parse issues
           mkdir -p "$HOME/.config"
           printf '%s\n' \
             '[pmbootstrap]' \
             "work = $WORK" \
             "device = $DEVICE" \
-            'kernel = ufi001c' \
             'ui = console' \
             'user = pmos' \
             'extra_space = 0' \

@@ -1,0 +1,32 @@
+# Device package for Zhihe UFI003-02 (MSM8916) -- local overlay
+# Reference: <https://postmarketos.org/devicepkg>
+pkgname=device-zhihe-ufi003-mb-v02
+pkgdesc="Device package for Zhihe UFI003-02 LTE dongle (MSM8916)"
+pkgver=1
+pkgrel=0
+url="https://postmarketos.org"
+license="GPL-2.0-only"
+arch="aarch64"
+options="!check !archcheck"
+depends="
+	mkbootimg
+	postmarketos-base
+	soc-qcom-msm8916
+	linux-postmarketos-qcom-msm8916
+	soc-qcom-msm8916-rproc
+"
+_pmb_select="soc-qcom-msm8916-rproc"
+makedepends="devicepkg-dev"
+source="deviceinfo"
+
+build() {
+	devicepkg_build $startdir $pkgname
+}
+
+package() {
+	devicepkg_package $startdir $pkgname
+}
+
+sha512sums="
+48b9e62ee7227f2df97787b90cfeee2cec9bda8955aabbd93d29aa95b34ea659389869dd1f8e353a3ce19a9f7641451e648c35079d14edfb827d4df329f8ea85  deviceinfo
+"
