@@ -62,8 +62,10 @@ jobs:
             done
           fi
           # Verify
-          if [ ! -f "$WORK/cache_git/pmaports/device/testing/${DEVICE}/deviceinfo" ]; then
-            echo "ERROR: Device overlay not found for $DEVICE"
+          DEVICE_DIR="device-${DEVICE}"
+          if [ ! -f "$WORK/cache_git/pmaports/device/testing/${DEVICE_DIR}/deviceinfo" ]; then
+            echo "ERROR: Device overlay not found at device/testing/${DEVICE_DIR}/deviceinfo"
+            ls "$WORK/cache_git/pmaports/device/testing/" 2>/dev/null || echo "(device/testing/ missing)"
             exit 1
           fi
           # pmbootstrap reads channels.cfg via

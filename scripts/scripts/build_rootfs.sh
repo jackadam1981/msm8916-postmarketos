@@ -33,8 +33,9 @@ if [ -d "$DEVICE_OVERLAY" ]; then
 fi
 
 # Verify our device was added
-if [ ! -f "$PMAPORTS_DIR/device/testing/${DEVICE}/deviceinfo" ]; then
-    echo "ERROR: Device overlay not found for $DEVICE in $PMAPORTS_DIR/device/testing/"
+DEVICE_DIR="device-${DEVICE}"
+if [ ! -f "$PMAPORTS_DIR/device/testing/${DEVICE_DIR}/deviceinfo" ]; then
+    echo "ERROR: Device overlay not found for $DEVICE_DIR in $PMAPORTS_DIR/device/testing/"
     exit 1
 fi
 
