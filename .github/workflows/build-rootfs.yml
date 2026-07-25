@@ -33,7 +33,18 @@ jobs:
           set -eu
 
           apt-get update -qq
-          apt-get install -y -qq kpartx procps kmod
+          apt-get install -y -qq kpartx procps kmod parted
+
+          # Check loop/device-mapper support for kpartx
+          echo "=== Checking loop and dm_mod support ==="
+          ls -la /dev/loop* 2>&1 || true
+          ls -la /dev/mapper/ 2>&1 || true
+          modprobe loop 2>&1 || echo "WARNING: modprobe loop failed"
+          modprobe dm_mod 2>&1 || echo "WARNING: modprobe dm_mod failed"
+          ls -la /dev/loop* 2>&1 || true
+          ls -la /dev/mapper/ 2>&1 || true
+          dd if=/dev/zero of=/tmp/test.img bs=1M count=10 2>&1
+          kpartx -av /tmp/test.img 2>&1 || echo "WARNING: kpartx test failed"
 
           WORK="$HOME/.local/var/pmbootstrap"
           CFG="$HOME/.config/pmbootstrap_v3.cfg"
