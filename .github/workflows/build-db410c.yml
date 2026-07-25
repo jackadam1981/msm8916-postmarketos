@@ -64,15 +64,15 @@ jobs:
 
           pmbootstrap --as-root install --password pmos --no-fde
 
-          mkdir -p /build/out
-          pmbootstrap --as-root export /build/out/ 2>&1
-          echo "=== Contents of /build/out/ ==="
-          ls -lh /build/out/ 2>/dev/null || true
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          pmbootstrap --as-root export "$GITHUB_WORKSPACE/out/" 2>&1
+          echo "=== Contents of $GITHUB_WORKSPACE/out/ ==="
+          ls -lh "$GITHUB_WORKSPACE/out/" 2>/dev/null || true
           find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
             -not -path "*/cache*" 2>/dev/null | head -20
 
       - uses: actions/upload-artifact@v4
         with:
           name: db410c-images
-          path: /build/out/
+          path: ${{ github.workspace }}/out/
           retention-days: 90
