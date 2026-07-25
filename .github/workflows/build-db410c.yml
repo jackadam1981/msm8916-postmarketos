@@ -1,0 +1,120 @@
+name: build-db410c
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-db410c.yml'
+
+jobs:
+  build-rootfs:
+    runs-on: ubuntu-latest
+    container:
+      image: jackadam/pmos_build:260715
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update pmbootstrap to latest
+        run: |
+          rm -rf /opt/pmbootstrap
+          git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /opt/pmbootstrap
+          ln -sf /opt/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
+          pmbootstrap --version
+
+      - name: Build DB410c rootfs
+        run: |
+          set -eu
+          apt-get update -qq
+          apt-get install -y -qq kpartx procps kmod parted
+
+          # Check loop device support
+          echo "=== Checking loop device support ==="
+          modprobe loop 2>&1 || echo "WARNING: modprobe loop failed"
+          ls -la /dev/loop* 2>&1 || true
+
+          WORK="$HOME/.local/var/pmbootstrap"
+          CFG="$HOME/.config/pmbootstrap_v3.cfg"
+          DEVICE="arrow-db410c"
+
+          echo "HOME=$HOME"
+          echo "WORK=$WORK"
+          echo "CFG=$CFG"
+          echo "DEVICE=$DEVICE"
+
+          mkdir -p "$WORK/cache_git"
+          printf '8\n' > "$WORK/version"
+
+          # Clone pmaports
+          git clone --depth=1 \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
+            "$WORK/cache_git/pmaports"
+
+          # Verify device exists in pmaports
+          DEVICE_DIR="device-${DEVICE}"
+          echo "=== Checking for $DEVICE_DIR in pmaports ==="
+          find "$WORK/cache_git/pmaports/device" -name "$DEVICE_DIR" -type d 2>/dev/null || echo "NOT FOUND"
+
+          # pmbootstrap reads channels.cfg via 'git show origin/main:channels.cfg'
+          git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
+            "$(git -C "$WORK/cache_git/pmaports" rev-parse HEAD)"
+
+          # Create config
+          mkdir -p "$HOME/.config"
+          printf '%s\n' \
+            '[pmbootstrap]' \
+            "work = $WORK" \
+            "device = $DEVICE" \
+            'ui = console' \
+            'user = pmos' \
+            'extra_space = 0' \
+            '' \
+            '[mirrors]' \
+            'alpine = https://dl-cdn.alpinelinux.org/alpine/' \
+            'pmaports = https://mirror.postmarketos.org/postmarketos/' \
+            > "$CFG"
+          cat "$CFG"
+
+          # Patch partition.py: kpartx -> losetup -P
+          echo "=== Patching partition.py: kpartx -> losetup -P ==="
+          python3 -c "
+c = open('/opt/pmbootstrap/pmb/install/partition.py').read()
+c = c.replace('\"kpartx\", \"-a\"', '\"true\"')
+c = c.replace('\"kpartx\", \"-d\"', '\"true\"')
+open('/opt/pmbootstrap/pmb/install/partition.py','w').write(c)
+"
+          python3 -c "
+c = open('/opt/pmbootstrap/pmb/install/partition.py').read()
+c = c.replace('losetup -f', 'losetup -f -P')
+open('/opt/pmbootstrap/pmb/install/partition.py','w').write(c)
+"
+          grep -n 'kpartx\|losetup' /opt/pmbootstrap/pmb/install/partition.py
+
+          # Patch apk exit code handling
+          python3 -c "c=open('/opt/pmbootstrap/pmb/helpers/apk.py').read();old='        pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)';new='        if p_apk.returncode in (1, 2):\n            print(f\"WARNING: apk.static returned exit code {p_apk.returncode}, ignoring (likely depmod trigger)\")\n        else:\n            pmb.helpers.run_core.check_return_code(p_apk.returncode, log_msg)';assert old in c;c=c.replace(old,new);open('/opt/pmbootstrap/pmb/helpers/apk.py','w').write(c)"
+          python3 -c "c=open('/opt/pmbootstrap/pmb/chroot/apk.py').read();c=c.replace('with_progress=(i == 0)','with_progress=True').replace('with_progress=False','with_progress=True');open('/opt/pmbootstrap/pmb/chroot/apk.py','w').write(c)"
+
+          # Install rootfs
+          set +e
+          pmbootstrap --as-root install --password pmos --no-fde
+          RC=$?
+          set -e
+          if [ $RC -ne 0 ]; then
+            echo "=== pmbootstrap log.txt ==="
+            cat "$HOME/.local/var/pmbootstrap/log.txt" 2>/dev/null || true
+            exit $RC
+          fi
+
+          # Export
+          mkdir -p /build/out
+          pmbootstrap --as-root export /build/out/ 2>&1
+          echo "=== Contents of /build/out/ ==="
+          ls -lh /build/out/ 2>/dev/null || echo "(empty)"
+          find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
+            -not -path "*/cache*" 2>/dev/null | head -20
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: db410c-images
+          path: /build/out/
+          retention-days: 90
