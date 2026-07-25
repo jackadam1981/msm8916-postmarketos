@@ -82,12 +82,15 @@ jobs:
 
           pmbootstrap --as-root install --password pmos --no-fde
 
+          pmbootstrap --as-root shutdown
+
           mkdir -p "$GITHUB_WORKSPACE/out"
-          pmbootstrap --as-root export "$GITHUB_WORKSPACE/out/" 2>&1
-          echo "=== Contents of $GITHUB_WORKSPACE/out/ ==="
-          ls -lh "$GITHUB_WORKSPACE/out/"
+          echo "=== Copying images to $GITHUB_WORKSPACE/out/ ==="
           find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
-            -not -path "*/cache*" 2>/dev/null | head -20
+            -not -path "*/cache*" 2>/dev/null | while read f; do
+            cp -L "$f" "$GITHUB_WORKSPACE/out/" 2>/dev/null || true
+          done
+          ls -lh "$GITHUB_WORKSPACE/out/"
 
       - uses: actions/upload-artifact@v4
         with:
