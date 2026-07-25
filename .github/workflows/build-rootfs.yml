@@ -114,34 +114,15 @@ jobs:
           # Patch partition.py: kpartx doesn't work in Docker containers
           # (device-mapper module unavailable). Replace kpartx with losetup -P
           # which creates partition device nodes via the kernel natively.
-          echo "=== Patching partition.py: kpartx -> losetup -P ==="
-          python3 -c "
-import re
-c = open('/opt/pmbootstrap/pmb/install/partition.py').read()
-
-# Replace 'kpartx -a /dev/loopX' with no-op (losetup -P already created partitions)
-c = c.replace('\"kpartx\", \"-a\"', '\"true\"')
-
-# Replace 'kpartx -d /dev/loopX' with no-op
-c = c.replace('\"kpartx\", \"-d\"', '\"true\"')
-
-open('/opt/pmbootstrap/pmb/install/partition.py','w').write(c)
-"
-          echo "=== Verify: partition.py kpartx references ==="
+          echo "=== Patching partition.py: kpartx -> no-op, losetup -P ==="
+          python3 -c |
+            c = open('/opt/pmbootstrap/pmb/install/partition.py').read()
+            c = c.replace('"kpartx", "-a"', '"true"')
+            c = c.replace('"kpartx", "-d"', '"true"')
+            c = c.replace('losetup -f', 'losetup -f -P')
+            open('/opt/pmbootstrap/pmb/install/partition.py','w').write(c)
+          echo "=== Verify: partition.py kpartx/losetup ==="
           grep -n 'kpartx\|losetup' /opt/pmbootstrap/pmb/install/partition.py
-
-          # Patch losetup call to add -P flag for automatic partition scanning
-          echo "=== Patching losetup to use -P flag ==="
-          python3 -c "
-c = open('/opt/pmbootstrap/pmb/install/partition.py').read()
-# Replace in the losetup call to add -P (partition scanning)
-# The original: losetup -f --show /path
-# Modified:     losetup -f -P --show /path
-c = c.replace('losetup -f', 'losetup -f -P')
-open('/opt/pmbootstrap/pmb/install/partition.py','w').write(c)
-"
-          echo "=== Verify: partition.py losetup flags ==="
-          grep -n 'losetup' /opt/pmbootstrap/pmb/install/partition.py
 
           # Install rootfs (no FDE, password for automation).
           set +e
