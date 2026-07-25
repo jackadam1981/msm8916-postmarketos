@@ -36,15 +36,9 @@ jobs:
           apt-get install -y -qq kpartx procps kmod parted
 
           # Check loop/device-mapper support for kpartx
-          echo "=== Checking loop and dm_mod support ==="
-          ls -la /dev/loop* 2>&1 || true
-          ls -la /dev/mapper/ 2>&1 || true
+          echo "=== Checking loop device support ==="
           modprobe loop 2>&1 || echo "WARNING: modprobe loop failed"
-          modprobe dm_mod 2>&1 || echo "WARNING: modprobe dm_mod failed"
           ls -la /dev/loop* 2>&1 || true
-          ls -la /dev/mapper/ 2>&1 || true
-          dd if=/dev/zero of=/tmp/test.img bs=1M count=10 2>&1
-          kpartx -av /tmp/test.img 2>&1 || echo "WARNING: kpartx test failed"
 
           WORK="$HOME/.local/var/pmbootstrap"
           CFG="$HOME/.config/pmbootstrap_v3.cfg"
@@ -116,6 +110,38 @@ jobs:
           grep -n 'check_return_code\|WARNING.*exit code' /opt/pmbootstrap/pmb/helpers/apk.py
           echo "=== Verify: chroot/apk.py with_progress ==="
           grep -n 'with_progress' /opt/pmbootstrap/pmb/chroot/apk.py
+
+          # Patch partition.py: kpartx doesn't work in Docker containers
+          # (device-mapper module unavailable). Replace kpartx with losetup -P
+          # which creates partition device nodes via the kernel natively.
+          echo "=== Patching partition.py: kpartx -> losetup -P ==="
+          python3 -c "
+import re
+c = open('/opt/pmbootstrap/pmb/install/partition.py').read()
+
+# Replace 'kpartx -a /dev/loopX' with no-op (losetup -P already created partitions)
+c = c.replace('\"kpartx\", \"-a\"', '\"true\"')
+
+# Replace 'kpartx -d /dev/loopX' with no-op
+c = c.replace('\"kpartx\", \"-d\"', '\"true\"')
+
+open('/opt/pmbootstrap/pmb/install/partition.py','w').write(c)
+"
+          echo "=== Verify: partition.py kpartx references ==="
+          grep -n 'kpartx\|losetup' /opt/pmbootstrap/pmb/install/partition.py
+
+          # Patch losetup call to add -P flag for automatic partition scanning
+          echo "=== Patching losetup to use -P flag ==="
+          python3 -c "
+c = open('/opt/pmbootstrap/pmb/install/partition.py').read()
+# Replace in the losetup call to add -P (partition scanning)
+# The original: losetup -f --show /path
+# Modified:     losetup -f -P --show /path
+c = c.replace('losetup -f', 'losetup -f -P')
+open('/opt/pmbootstrap/pmb/install/partition.py','w').write(c)
+"
+          echo "=== Verify: partition.py losetup flags ==="
+          grep -n 'losetup' /opt/pmbootstrap/pmb/install/partition.py
 
           # Install rootfs (no FDE, password for automation).
           set +e
