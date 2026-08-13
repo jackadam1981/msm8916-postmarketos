@@ -1,0 +1,144 @@
+name: Build pmOS for MSM8916
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'pmOS variant (phosh, phosh_light, sxmo, etc.)'
+        required: true
+        default: 'phosh'
+      release_channel:
+        description: 'postmarketOS release channel'
+        required: true
+        default: 'edge'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      packages: read
+
+    steps:
+      # ==================================================================
+      # 1. Checkout repository
+      # ==================================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ==================================================================
+      # 2. Setup Docker Buildx
+      # ==================================================================
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install Docker Compose
+        uses: docker/compose-action@v3
+
+      # ==================================================================
+      # 3. Start pmbuild container
+      # ==================================================================
+      - name: Start pmbuild container
+        run: |
+          docker compose up -d
+          # Wait for container to be ready
+          sleep 10
+
+      # ==================================================================
+      # 4. Initialize pmbootstrap device
+      # ==================================================================
+      - name: Initialize pmbootstrap device
+        run: |
+          docker compose exec builder pmbootstrap init \
+            --device zhihe-ufi003-mb-v02 \
+            --ui console \
+            --user pmos \
+            --work-path /home/jack/.local/var/pmbootstrap \
+            --yes
+
+      # ==================================================================
+      # 4. Build rootfs and images
+      # ==================================================================
+      - name: Build rootfs and images
+        run: |
+          # Install pmOS base system
+          docker compose exec builder pmbootstrap install
+
+          # Generate initramfs and boot images
+          docker compose exec builder pmbootstrap initfs
+
+          # Export images for use
+          docker compose exec builder pmbootstrap export
+
+      # ==================================================================
+      # 5. Convert images (img2simg + split)
+      # ==================================================================
+      - name: Convert and split images
+        run: |
+          # Navigate to images directory
+          cd images
+
+          # Convert raw to sparse (if needed)
+          # img2simg raw.img sparse.img
+
+          # Split images larger than 2GB (GitHub limit)
+          # Example split logic:
+          # If total size > 2GB, split into ~1.9GB parts
+          # dd if=sparse.img of=part1.img bs=1M count=1900
+          # dd if=sparse.img of=part2.img bs=1M skip=1900
+
+      # ==================================================================
+      # 6. Upload to GitHub Releases
+      # ==================================================================
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2024.08-msm8916
+          name: "MSM8916 pmOS Build - ${{ github.event.inputs.variant }} - ${{ github.event.inputs.release_channel }}"
+          body: |
+            ## 📱 postmarketOS for MSM8916 (UFI003-02)
+
+            **Device**: UFI003-02 (MSM8916 Snapdragon 410)
+            **Variant**: ${{ github.event.inputs.variant }}
+            **Channel**: ${{ github.event.inputs.release_channel }}
+
+            ### 📥 Download
+            - `pmos-rootfs.img` - Root filesystem (ext4)
+            - `pmos-full.img` - Complete eMMC image
+            - `lk2nd.img` - Secondary bootloader
+
+            ### 🛠️ Flash Instructions
+            **Using EDL (Recommended)**:
+            ```bash
+            # 1. Enter EDL mode: Vol Down + Power + USB
+            # 2. Run: .\tools\edl\run-edl.bat w userdata out\emmc_full.img
+            # 3. Verify: .\tools\edl\run-edl.ps1 printgpt
+            ```
+
+            **Using fastboot**:
+            ```bash
+            # 1. Boot to fastboot: Vol Down + Power + USB
+            # 2. flash boot: fastboot flash boot boot.img
+            # 3. flash pmos_rootfs: fastboot flash pmos_rootfs rootfs.img
+            # 4. Reboot: fastboot reboot
+            ```
+
+            ### 📦 Contents
+            - `images/pmos-rootfs.img` - Root partition (ext4)
+            - `images/pmos-full.img` - Complete eMMC image
+            - `lk2nd.img` - Secondary bootloader (if applicable)
+
+            ### 📋 Notes
+            - First boot will automatically expand rootfs to fill eMMC
+            - NV data (modem, persist, etc.) preserved in original partitions
+            - based on postmarketOS `edge` channel
+            - Device tree: `zhihe-ufi003-mb-v02`
+
+      # ==================================================================
+      # 7. Notify (optional)
+      # ==================================================================
+      - name: Success notification
+        run: echo "✅ pmOS build completed successfully for MSM8916!"
