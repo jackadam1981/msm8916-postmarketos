@@ -60,16 +60,32 @@ jobs:
           "
 
       # ==================================================================
-      # 4. Write pmbootstrap config (v3 format, no interactive init)
+      # 4. Configure pmbootstrap (v3: config file + pmaports clone)
       # ==================================================================
       - name: Configure pmbootstrap
         run: |
           docker compose exec builder bash -c "
+            set -eu
+            WORK=\$HOME/.local/var/pmbootstrap
+            CFG=\$HOME/.config/pmbootstrap_v3.cfg
+            DEVICE=generic-zhihe
+
+            mkdir -p \$WORK/cache_git
+            printf '8\n' > \$WORK/version
+            if [ ! -d \$WORK/cache_git/pmaports ]; then
+              git clone --depth=1 https://github.com/mainlining/pmaports.git \
+                \$WORK/cache_git/pmaports
+              git -C \$WORK/cache_git/pmaports remote set-url origin \
+                https://gitlab.postmarketos.org/postmarketOS/pmaports.git
+              git -C \$WORK/cache_git/pmaports update-ref refs/remotes/origin/main \
+                \$(git -C \$WORK/cache_git/pmaports rev-parse HEAD)
+            fi
+
             mkdir -p \$HOME/.config
             printf '%s\n' \
               '[pmbootstrap]' \
-              'work = /home/jack/.local/var/pmbootstrap' \
-              'device = generic-zhihe' \
+              \"work = \$WORK\" \
+              \"device = \$DEVICE\" \
               'kernel = ufi001c' \
               'ui = console' \
               'user = pmos' \
@@ -78,8 +94,8 @@ jobs:
               '[providers]' \
               '' \
               '[mirrors]' \
-              > \$HOME/.config/pmbootstrap_v3.cfg
-            cat \$HOME/.config/pmbootstrap_v3.cfg
+              > \$CFG
+            cat \$CFG
           "
 
       # ==================================================================
@@ -94,6 +110,7 @@ jobs:
           docker compose exec builder pmbootstrap --as-root initfs
 
           # Export images for use
+          docker compose exec builder mkdir -p /build/out
           docker compose exec builder pmbootstrap --as-root export /build/out/
           docker compose exec builder ls -lh /build/out/
 

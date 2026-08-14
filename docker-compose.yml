@@ -7,7 +7,7 @@ services:
     working_dir: /build
     volumes:
       - .:/build
-      - pmb-work:/home/jack/.local/var/pmbootstrap
+      - pmb-work:/root/.local/var/pmbootstrap
     tty: true
 
 volumes:
