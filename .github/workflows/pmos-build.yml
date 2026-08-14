@@ -60,56 +60,76 @@ jobs:
           "
 
       # ==================================================================
-      # 4. Initialize pmbootstrap device
+      # 4. Write pmbootstrap config (v3 format, no interactive init)
       # ==================================================================
-      - name: Initialize pmbootstrap device
+      - name: Configure pmbootstrap
         run: |
-          docker compose exec builder pmbootstrap init \
-            --device zhihe-ufi003-mb-v02 \
-            --ui console \
-            --user pmos \
-            --work-path /home/jack/.local/var/pmbootstrap \
-            --yes
+          docker compose exec builder bash -c "
+            mkdir -p \$HOME/.config
+            printf '%s\n' \
+              '[pmbootstrap]' \
+              'work = /home/jack/.local/var/pmbootstrap' \
+              'device = generic-zhihe' \
+              'kernel = ufi001c' \
+              'ui = console' \
+              'user = pmos' \
+              'extra_space = 0' \
+              '' \
+              '[providers]' \
+              '' \
+              '[mirrors]' \
+              > \$HOME/.config/pmbootstrap_v3.cfg
+            cat \$HOME/.config/pmbootstrap_v3.cfg
+          "
 
       # ==================================================================
-      # 4. Build rootfs and images
+      # 5. Build rootfs and images
       # ==================================================================
       - name: Build rootfs and images
         run: |
           # Install pmOS base system
-          docker compose exec builder pmbootstrap install
+          docker compose exec builder pmbootstrap --as-root install --password pmos --no-fde --zap
 
           # Generate initramfs and boot images
-          docker compose exec builder pmbootstrap initfs
+          docker compose exec builder pmbootstrap --as-root initfs
 
           # Export images for use
-          docker compose exec builder pmbootstrap export
+          docker compose exec builder pmbootstrap --as-root export /build/out/
+          docker compose exec builder ls -lh /build/out/
 
       # ==================================================================
-      # 5. Convert images (img2simg + split)
+      # 5. Collect and split images (GitHub 2GB release limit)
       # ==================================================================
       - name: Convert and split images
         run: |
-          # Navigate to images directory
-          cd images
+          # Images are exported into the container's /build/out/
+          # which is mounted to the repo's ./out/ via docker-compose.
+          mkdir -p out
+          ls -lh out/
 
-          # Convert raw to sparse (if needed)
-          # img2simg raw.img sparse.img
-
-          # Split images larger than 2GB (GitHub limit)
-          # Example split logic:
-          # If total size > 2GB, split into ~1.9GB parts
-          # dd if=sparse.img of=part1.img bs=1M count=1900
-          # dd if=sparse.img of=part2.img bs=1M skip=1900
+          # Split any image larger than 2GB (GitHub release limit)
+          for f in out/*.img out/*.img.xz out/*.gz; do
+            [ -f "$f" ] || continue
+            size=$(stat -c%s "$f" 2>/dev/null || echo 0)
+            if [ "$size" -gt 2000000000 ]; then
+              echo "Splitting large file: $f ($size bytes)"
+              cd "$(dirname "$f")"
+              split -b 1900M -d -a 2 "$(basename "$f")" "$(basename "$f").part."
+              rm -f "$(basename "$f")"
+              cd -
+            fi
+          done
+          ls -lh out/
 
       # ==================================================================
-      # 5. Upload to GitHub Releases
+      # 6. Upload to GitHub Releases
       # ==================================================================
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v2024.08-msm8916
           name: "MSM8916 pmOS Build - ${{ github.event.inputs.variant }} - ${{ github.event.inputs.release_channel }}"
+          files: out/*
           body: |
             ## 📱 postmarketOS for MSM8916 (UFI003-02)
 
@@ -150,7 +170,7 @@ jobs:
             - Device tree: `zhihe-ufi003-mb-v02`
 
       # ==================================================================
-      # 6. Notify (optional)
+      # 7. Notify (optional)
       # ==================================================================
       - name: Success notification
         run: echo "✅ pmOS build completed successfully for MSM8916!"
