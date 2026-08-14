@@ -30,13 +30,13 @@ jobs:
           fetch-depth: 0
 
       # ==================================================================
-      # 2. Setup Docker Buildx
+      # 2. Setup Docker (builtin compose, no external action needed)
       # ==================================================================
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Install Docker Compose
-        uses: docker/compose-action@v3
+        run: |
+          # GitHub Ubuntu runners have docker compose pre-installed
+          # Verify it's available
+          docker compose version
 
       # ==================================================================
       # 3. Start pmbuild container
@@ -91,7 +91,7 @@ jobs:
           # dd if=sparse.img of=part2.img bs=1M skip=1900
 
       # ==================================================================
-      # 6. Upload to GitHub Releases
+      # 5. Upload to GitHub Releases
       # ==================================================================
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -138,7 +138,7 @@ jobs:
             - Device tree: `zhihe-ufi003-mb-v02`
 
       # ==================================================================
-      # 7. Notify (optional)
+      # 6. Notify (optional)
       # ==================================================================
       - name: Success notification
         run: echo "✅ pmOS build completed successfully for MSM8916!"
