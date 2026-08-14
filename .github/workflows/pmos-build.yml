@@ -48,6 +48,18 @@ jobs:
           sleep 10
 
       # ==================================================================
+      # 3.5 Update pmbootstrap to latest (image ships a pre-migration version)
+      # ==================================================================
+      - name: Update pmbootstrap to latest
+        run: |
+          docker compose exec builder bash -c "
+            rm -rf /opt/pmbootstrap
+            git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /opt/pmbootstrap
+            ln -sf /opt/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
+            pmbootstrap --version
+          "
+
+      # ==================================================================
       # 4. Initialize pmbootstrap device
       # ==================================================================
       - name: Initialize pmbootstrap device
