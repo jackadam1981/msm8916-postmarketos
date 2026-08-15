@@ -30,147 +30,119 @@ jobs:
           fetch-depth: 0
 
       # ==================================================================
-      # 2. Setup Docker (builtin compose, no external action needed)
+      # 2. Install host dependencies (pmbootstrap needs host loop devices)
       # ==================================================================
-      - name: Install Docker Compose
+      - name: Install dependencies
         run: |
-          # GitHub Ubuntu runners have docker compose pre-installed
-          # Verify it's available
-          docker compose version
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq kpartx coreutils parted e2fsprogs procps kmod
 
       # ==================================================================
-      # 3. Start pmbuild container
+      # 3. Install pmbootstrap (latest, from post-GitLab-migration repo)
       # ==================================================================
-      - name: Start pmbuild container
+      - name: Install pmbootstrap
         run: |
-          docker compose up -d
-          # Wait for container to be ready
-          sleep 10
+          git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /tmp/pmbootstrap
+          sudo ln -sf /tmp/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
+          pmbootstrap --version
 
       # ==================================================================
-      # 3.5 Update pmbootstrap to latest (image ships a pre-migration version)
-      # ==================================================================
-      - name: Update pmbootstrap to latest
-        run: |
-          docker compose exec builder bash -c "
-            rm -rf /opt/pmbootstrap
-            git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /opt/pmbootstrap
-            ln -sf /opt/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
-            pmbootstrap --version
-          "
-
-      # ==================================================================
-      # 3.5 Install required tools (kpartx, procps for ps)
-      # ==================================================================
-      - name: Install required tools
-        run: |
-          docker compose exec builder bash -c "
-            apt-get update -qq
-            apt-get install -y -qq kpartx procps kmod
-          "
-
-      # ==================================================================
-      # 4. Configure pmbootstrap (v3: config file + pmaports clone)
-      #    Proven approach: official pmaports + local device overlay
-      # ==================================================================
-      - name: Configure pmbootstrap
-        run: |
-          docker compose exec builder bash -c "
-            set -eu
-            WORK=\$HOME/.local/var/pmbootstrap
-            CFG=\$HOME/.config/pmbootstrap_v3.cfg
-            DEVICE=410stick-ufi003-mb-v02
-
-            mkdir -p \$WORK/cache_git
-            printf '8\n' > \$WORK/version
-            if [ ! -d \$WORK/cache_git/pmaports ]; then
-              git clone --depth=1 \
-                https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
-                \$WORK/cache_git/pmaports
-              git -C \$WORK/cache_git/pmaports update-ref refs/remotes/origin/main \
-                \$(git -C \$WORK/cache_git/pmaports rev-parse HEAD)
-            fi
-
-            # Merge local device overlay into pmaports
-            OVERLAY_SRC=/build/config/device-testing
-            if [ -d \"\$OVERLAY_SRC\" ]; then
-              echo '=== Merging local device overlay ==='
-              for device_dir in \"\$OVERLAY_SRC\"/*/; do
-                [ -d \"\$device_dir\" ] || continue
-                devname=\$(basename \"\$device_dir\")
-                echo \"  Adding device: \$devname\"
-                cp -r \"\$device_dir\" \"\$WORK/cache_git/pmaports/device/testing/\$devname\"
-              done
-            fi
-
-            DEVICE_DIR=device-\$DEVICE
-            if [ ! -f \"\$WORK/cache_git/pmaports/device/testing/\${DEVICE_DIR}/deviceinfo\" ]; then
-              echo \"ERROR: Device overlay not found at device/testing/\${DEVICE_DIR}/deviceinfo\"
-              ls \"\$WORK/cache_git/pmaports/device/testing/\" 2>/dev/null || echo '(device/testing/ missing)'
-              exit 1
-            fi
-
-            mkdir -p \$HOME/.config
-            printf '%s\n' \
-              '[pmbootstrap]' \
-              \"work = \$WORK\" \
-              \"device = \$DEVICE\" \
-              'ui = console' \
-              'user = pmos' \
-              'extra_space = 0' \
-              '' \
-              '[providers]' \
-              '' \
-              '[mirrors]' \
-              'alpine = https://dl-cdn.alpinelinux.org/alpine/' \
-              'pmaports = https://mirror.postmarketos.org/postmarketos/' \
-              > \$CFG
-            cat \$CFG
-          "
-
-      # ==================================================================
-      # 5. Build rootfs and images
+      # 4. Build rootfs (official pmaports + local device overlay)
       # ==================================================================
       - name: Build rootfs and images
         run: |
-          # Install pmOS base system
-          docker compose exec builder pmbootstrap --as-root install --password pmos --no-fde \
-            || docker compose exec builder sh -c 'tail -80 /root/.local/var/pmbootstrap/log.txt; exit 1'
+          set -eu
+          DEVICE="410stick-ufi003-mb-v02"
+          WORK="$HOME/.local/var/pmbootstrap"
+          OVERLAY_SRC="$GITHUB_WORKSPACE/config/device-testing"
 
-          # Generate initramfs and boot images
-          docker compose exec builder pmbootstrap --as-root initfs
+          echo "=== Loop device support ==="
+          ls -la /dev/loop* 2>&1 || true
+          modprobe loop 2>&1 || true
 
-          # Export images for use
-          docker compose exec builder mkdir -p /build/out
-          docker compose exec builder pmbootstrap --as-root export /build/out/
-          docker compose exec builder ls -lh /build/out/
+          mkdir -p "$WORK/cache_git"
+          printf '8\n' > "$WORK/version"
+
+          git clone --depth=1 \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
+            "$WORK/cache_git/pmaports"
+
+          # Merge local device overlay
+          if [ -d "$OVERLAY_SRC" ]; then
+            echo "=== Merging local device overlay from $OVERLAY_SRC ==="
+            for device_dir in "$OVERLAY_SRC"/*/; do
+              [ -d "$device_dir" ] || continue
+              devname=$(basename "$device_dir")
+              echo "  Adding device: $devname"
+              cp -r "$device_dir" "$WORK/cache_git/pmaports/device/testing/$devname"
+            done
+          fi
+
+          DEVICE_DIR="device-${DEVICE}"
+          if [ ! -f "$WORK/cache_git/pmaports/device/testing/${DEVICE_DIR}/deviceinfo" ]; then
+            echo "ERROR: Device overlay not found at device/testing/${DEVICE_DIR}/deviceinfo"
+            ls "$WORK/cache_git/pmaports/device/testing/" 2>/dev/null || echo "(device/testing/ missing)"
+            exit 1
+          fi
+
+          git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
+            "$(git -C "$WORK/cache_git/pmaports" rev-parse HEAD)"
+          echo "=== pmaports git refs ==="
+          git -C "$WORK/cache_git/pmaports" show-ref | head -5
+
+          mkdir -p "$HOME/.config"
+          printf '%s\n' \
+            '[pmbootstrap]' \
+            "work = $WORK" \
+            "device = $DEVICE" \
+            'ui = console' \
+            'user = pmos' \
+            'extra_space = 0' \
+            '' \
+            '[mirrors]' \
+            'alpine = https://dl-cdn.alpinelinux.org/alpine/' \
+            'pmaports = https://mirror.postmarketos.org/postmarketos/' \
+            > "$HOME/.config/pmbootstrap_v3.cfg"
+          cat "$HOME/.config/pmbootstrap_v3.cfg"
+
+          pmbootstrap --as-root install --password pmos --no-fde
+
+          pmbootstrap --as-root shutdown
 
       # ==================================================================
-      # 5. Collect and split images (GitHub 2GB release limit)
+      # 5. Collect images
       # ==================================================================
-      - name: Convert and split images
+      - name: Collect images
         run: |
-          # Images are exported into the container's /build/out/
-          # which is mounted to the repo's ./out/ via docker-compose.
-          mkdir -p out
-          ls -lh out/
+          set -eu
+          WORK="$HOME/.local/var/pmbootstrap"
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          echo "=== Copying images to $GITHUB_WORKSPACE/out/ ==="
+          find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
+            -not -path "*/cache*" 2>/dev/null | while read f; do
+            cp -L "$f" "$GITHUB_WORKSPACE/out/" 2>/dev/null || true
+          done
+          ls -lh "$GITHUB_WORKSPACE/out/"
 
-          # Split any image larger than 2GB (GitHub release limit)
-          for f in out/*.img out/*.img.xz out/*.gz; do
+      # ==================================================================
+      # 6. Split images over 2GB (GitHub release limit)
+      # ==================================================================
+      - name: Split large images
+        run: |
+          cd "$GITHUB_WORKSPACE/out"
+          for f in *.img *.img.xz *.gz; do
             [ -f "$f" ] || continue
             size=$(stat -c%s "$f" 2>/dev/null || echo 0)
             if [ "$size" -gt 2000000000 ]; then
               echo "Splitting large file: $f ($size bytes)"
-              cd "$(dirname "$f")"
-              split -b 1900M -d -a 2 "$(basename "$f")" "$(basename "$f").part."
-              rm -f "$(basename "$f")"
-              cd -
+              split -b 1900M -d -a 2 "$f" "$f.part."
+              rm -f "$f"
             fi
           done
-          ls -lh out/
+          ls -lh
 
       # ==================================================================
-      # 6. Upload to GitHub Releases
+      # 7. Upload to GitHub Releases
       # ==================================================================
       - name: Create Release
         uses: softprops/action-gh-release@v3.0.2
@@ -186,39 +158,25 @@ jobs:
             **Channel**: ${{ github.event.inputs.release_channel }}
 
             ### 📥 Download
-            - `pmos-rootfs.img` - Root filesystem (ext4)
-            - `pmos-full.img` - Complete eMMC image
-            - `lk2nd.img` - Secondary bootloader
+            - `410stick-ufi003-mb-v02.img` - Full rootfs image
+            - `boot.img` - Fastboot bootable image
+            - `vmlinuz` - Kernel image
 
             ### 🛠️ Flash Instructions
-            **Using EDL (Recommended)**:
-            ```bash
-            # 1. Enter EDL mode: Vol Down + Power + USB
-            # 2. Run: .\tools\edl\run-edl.bat w userdata out\emmc_full.img
-            # 3. Verify: .\tools\edl\run-edl.ps1 printgpt
-            ```
-
             **Using fastboot**:
             ```bash
             # 1. Boot to fastboot: Vol Down + Power + USB
             # 2. flash boot: fastboot flash boot boot.img
-            # 3. flash pmos_rootfs: fastboot flash pmos_rootfs rootfs.img
+            # 3. flash rootfs: fastboot flash userdata 410stick-ufi003-mb-v02.img
             # 4. Reboot: fastboot reboot
             ```
 
-            ### 📦 Contents
-            - `images/pmos-rootfs.img` - Root partition (ext4)
-            - `images/pmos-full.img` - Complete eMMC image
-            - `lk2nd.img` - Secondary bootloader (if applicable)
-
             ### 📋 Notes
-            - First boot will automatically expand rootfs to fill eMMC
             - NV data (modem, persist, etc.) preserved in original partitions
             - based on postmarketOS `edge` channel
-            - Device tree: `zhihe-ufi003-mb-v02`
-
+            - Device: `410stick-ufi003-mb-v02` (MSM8916 / UFI003-02)
       # ==================================================================
-      # 7. Notify (optional)
+      # 8. Notify (optional)
       # ==================================================================
       - name: Success notification
         run: echo "✅ pmOS build completed successfully for MSM8916!"
