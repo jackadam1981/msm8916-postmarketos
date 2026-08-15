@@ -60,6 +60,16 @@ jobs:
           "
 
       # ==================================================================
+      # 3.5 Install required tools (kpartx, procps for ps)
+      # ==================================================================
+      - name: Install required tools
+        run: |
+          docker compose exec builder bash -c "
+            apt-get update -qq
+            apt-get install -y -qq kpartx procps kmod
+          "
+
+      # ==================================================================
       # 4. Configure pmbootstrap (v3: config file + pmaports clone)
       # ==================================================================
       - name: Configure pmbootstrap
