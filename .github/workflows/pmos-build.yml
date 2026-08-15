@@ -25,7 +25,7 @@ jobs:
       # 1. Checkout repository
       # ==================================================================
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -71,6 +71,7 @@ jobs:
 
       # ==================================================================
       # 4. Configure pmbootstrap (v3: config file + pmaports clone)
+      #    Proven approach: official pmaports + local device overlay
       # ==================================================================
       - name: Configure pmbootstrap
         run: |
@@ -78,17 +79,35 @@ jobs:
             set -eu
             WORK=\$HOME/.local/var/pmbootstrap
             CFG=\$HOME/.config/pmbootstrap_v3.cfg
-            DEVICE=generic-zhihe
+            DEVICE=410stick-ufi003-mb-v02
 
             mkdir -p \$WORK/cache_git
             printf '8\n' > \$WORK/version
             if [ ! -d \$WORK/cache_git/pmaports ]; then
-              git clone --depth=1 https://github.com/mainlining/pmaports.git \
+              git clone --depth=1 \
+                https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
                 \$WORK/cache_git/pmaports
-              git -C \$WORK/cache_git/pmaports remote set-url origin \
-                https://gitlab.postmarketos.org/postmarketOS/pmaports.git
               git -C \$WORK/cache_git/pmaports update-ref refs/remotes/origin/main \
                 \$(git -C \$WORK/cache_git/pmaports rev-parse HEAD)
+            fi
+
+            # Merge local device overlay into pmaports
+            OVERLAY_SRC=/build/config/device-testing
+            if [ -d \"\$OVERLAY_SRC\" ]; then
+              echo '=== Merging local device overlay ==='
+              for device_dir in \"\$OVERLAY_SRC\"/*/; do
+                [ -d \"\$device_dir\" ] || continue
+                devname=\$(basename \"\$device_dir\")
+                echo \"  Adding device: \$devname\"
+                cp -r \"\$device_dir\" \"\$WORK/cache_git/pmaports/device/testing/\$devname\"
+              done
+            fi
+
+            DEVICE_DIR=device-\$DEVICE
+            if [ ! -f \"\$WORK/cache_git/pmaports/device/testing/\${DEVICE_DIR}/deviceinfo\" ]; then
+              echo \"ERROR: Device overlay not found at device/testing/\${DEVICE_DIR}/deviceinfo\"
+              ls \"\$WORK/cache_git/pmaports/device/testing/\" 2>/dev/null || echo '(device/testing/ missing)'
+              exit 1
             fi
 
             mkdir -p \$HOME/.config
@@ -96,7 +115,6 @@ jobs:
               '[pmbootstrap]' \
               \"work = \$WORK\" \
               \"device = \$DEVICE\" \
-              'kernel = ufi001c' \
               'ui = console' \
               'user = pmos' \
               'extra_space = 0' \
@@ -104,6 +122,8 @@ jobs:
               '[providers]' \
               '' \
               '[mirrors]' \
+              'alpine = https://dl-cdn.alpinelinux.org/alpine/' \
+              'pmaports = https://mirror.postmarketos.org/postmarketos/' \
               > \$CFG
             cat \$CFG
           "
@@ -114,7 +134,7 @@ jobs:
       - name: Build rootfs and images
         run: |
           # Install pmOS base system
-          docker compose exec builder pmbootstrap --as-root install --password pmos --no-fde --zap \
+          docker compose exec builder pmbootstrap --as-root install --password pmos --no-fde \
             || docker compose exec builder sh -c 'tail -80 /root/.local/var/pmbootstrap/log.txt; exit 1'
 
           # Generate initramfs and boot images
@@ -153,7 +173,7 @@ jobs:
       # 6. Upload to GitHub Releases
       # ==================================================================
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.2
         with:
           tag_name: v2024.08-msm8916
           name: "MSM8916 pmOS Build - ${{ github.event.inputs.variant }} - ${{ github.event.inputs.release_channel }}"
