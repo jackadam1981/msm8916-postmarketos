@@ -114,7 +114,8 @@ jobs:
       - name: Build rootfs and images
         run: |
           # Install pmOS base system
-          docker compose exec builder pmbootstrap --as-root install --password pmos --no-fde --zap
+          docker compose exec builder pmbootstrap --as-root install --password pmos --no-fde --zap \
+            || docker compose exec builder sh -c 'tail -80 /root/.local/var/pmbootstrap/log.txt; exit 1'
 
           # Generate initramfs and boot images
           docker compose exec builder pmbootstrap --as-root initfs
