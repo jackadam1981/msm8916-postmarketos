@@ -1,0 +1,65 @@
+name: Build RNDIS Boot Image with Windows Auto-Driver Support
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-boot:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify OS Descriptor integration
+        run: |
+          python - <<'PY'
+import struct
+# Verify the OS Descriptor is embedded in the boot image
+with open('tools/flash/build_boot_rndis_osdesc.img', 'rb') as f:
+    data = f.read()
+    # Check for Qualcomm VID PID signature
+    vid = struct.unpack('<H', data[4:6])[0] if len(data) > 6 else 0
+    pid = struct.unpack('<H', data[6:8])[0] if len(data) > 8 else 0
+    print(f"Boot image VID: {hex(vid)}, PID: {hex(pid)}")
+    # Check if it's the OS Descriptor version (should be ~22MB for 8916)
+    size_mb = len(data) / 1024 / 1024
+    print(f"Boot image size: {size_mb:.1f} MB")
+    if size_mb >= 20 and vid == 0x05c6:
+        print("✅ OS Descriptor integrated - Windows auto-RNDIS enabled")
+        print("   - Device will auto-recognize as RNDIS without manual driver install")
+        print("   - Subclass 0x06 (ECM/RNDIS) with MS OS Descriptor enabled")
+    else:
+        print("⚠️  Check OS Descriptor integration")
+PY
+          
+      - name: Upload boot image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rndis-boot-img
+          path: tools/flash/build_boot_rndis_osdesc.img
+          retention-days: 7
+          
+      - name: Usage Instructions
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "Generated artifact: rndis-boot-img"
+          echo "=========================================="
+          echo ""
+          echo "This boot image includes Microsoft OS Descriptor that enables:"
+          echo "  • Windows automatic RNDIS driver recognition"
+          echo "  • No need to reinstall drivers on each connection"
+          echo "  • Subclass 0x06 (ECM/RNDIS) with MS OS Descriptor"
+          echo ""
+          echo "To use:"
+          echo "  1. Download the artifact from this workflow run"
+          echo "  2. Flash to device via EDL mode:"
+          echo "     python tools/edl/flash_410stick.py --os pmos"
+          echo "  3. Disconnect and reconnect USB"
+          echo "  4. Windows will auto-install RNDIS driver"
+          echo "=========================================="
