@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Compile RNDIS Boot Image
+      - name: Compile RNDIS Boot Image (Independent)
         run: python scripts/compile_rndis_boot.py
 
       - name: Upload boot image artifact
