@@ -17,9 +17,6 @@ jobs:
     runs-on: linux-latest
 
     steps:
-      # -------------------------------------------------------------
-      # 1. Checkout repository
-      # -------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -31,9 +28,6 @@ jobs:
       - name: Check PMOS version
         run: python scripts/check_version.py "${{ github.event.inputs.version }}"
 
-      # -------------------------------------------------------------
-      # 4. Build boot and rootfs from PMOS source
-      # -------------------------------------------------------------
       - name: Build boot and rootfs from PMOS source
         if: success()
         run: |
@@ -107,6 +101,6 @@ echo "  2. Flash boot.img via EDL mode:"
 echo "     python tools/edl/flash_410stick.py --os pmos --boot tools/flash/build_boot_rndis_osdesc.img"
 echo "  3. Flash rootfs.img via EDL mode:"
 echo "     python tools/edl/flash_410stick.py --os pmos --rootfs <path_to_rootfs_img>"
-echo "  4. Disconnect and reconnect USB"
+echo "  3. Disconnect and reconnect USB"
 echo "  5. Windows will auto-install RNDIS driver"
 echo "=========================================="
