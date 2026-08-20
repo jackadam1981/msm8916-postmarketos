@@ -17,29 +17,17 @@ jobs:
     runs-on: linux-latest
 
     steps:
-      # -------------------------------------------------------------
-      # 1. Checkout repository
-      # -------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -------------------------------------------------------------
-      # 2. Set up Python
-      # -------------------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      # -------------------------------------------------------------
-      # 3. Check PMOS version (auto vs latest release)
-      # -------------------------------------------------------------
       - name: Check PMOS version
         run: python scripts/check_version.py "${{ github.event.inputs.version }}"
 
-      # -------------------------------------------------------------
-      # 4. Build from PMOS source (core compilation)
-      # -------------------------------------------------------------
       - name: Build from PMOS source
         if: success()
         run: |
@@ -60,9 +48,6 @@ EOF
           pmbootstrap build boot
           echo "✅ boot.img 构建完成"
 
-      # -------------------------------------------------------------
-      # 5. Verify OS Descriptor (inline YAML - 精简版)
-      # -------------------------------------------------------------
       - name: Verify OS Descriptor
         run: |
           python3 -c "
@@ -79,12 +64,7 @@ try:
 except:
     sys.exit(1)
 "
-        # 退出码捕获: 0=通过, 1=失败
-        # workflow 会根据 exit code 自动处理
-
-      # -------------------------------------------------------------
-      # 6. Upload artifact
-      # -------------------------------------------------------------
+      ,
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -92,9 +72,6 @@ except:
           path: tools/flash/build_boot_rndis_osdesc.img
           retention-days: 7
 
-      # -------------------------------------------------------------
-      # 7. Usage Instructions
-      # -------------------------------------------------------------
       - name: Usage Instructions
         run: |
 echo ""
