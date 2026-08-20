@@ -1,4 +1,4 @@
-name: Build RNDIS Boot Image from PMOS Source
+name: Build RNDIS Boot and Rootfs Images from PMOS Source
 
 on:
   push:
@@ -13,10 +13,13 @@ on:
         required: false
 
 jobs:
-  build-boot:
+  build-boot-and-rootfs:
     runs-on: linux-latest
 
     steps:
+      # -------------------------------------------------------------
+      # 1. Checkout repository
+      # -------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -28,7 +31,10 @@ jobs:
       - name: Check PMOS version
         run: python scripts/check_version.py "${{ github.event.inputs.version }}"
 
-      - name: Build from PMOS source
+      # -------------------------------------------------------------
+      # 4. Build boot and rootfs from PMOS source
+      # -------------------------------------------------------------
+      - name: Build boot and rootfs from PMOS source
         if: success()
         run: |
           set -e
@@ -44,11 +50,14 @@ default
 EOF
           echo "🔧 添加设备支持 msm8916..."
           pmbootstrap config --add-device msm8916
-          echo "🔧 开始编译 boot.img..."
+          echo "🔧 编译 boot.img..."
           pmbootstrap build boot
           echo "✅ boot.img 构建完成"
+          echo "🔧 编译 rootfs.img..."
+          pmbootstrap build rootfs
+          echo "✅ rootfs.img 构建完成"
 
-      - name: Verify OS Descriptor
+      - name: Verify OS Descriptor (boot.img)
         run: |
           python3 -c "
 import struct, sys
@@ -65,19 +74,27 @@ except:
     sys.exit(1)
 "
       ,
-      - name: Upload artifact
+      - name: Upload boot image artifact
         uses: actions/upload-artifact@v4
         with:
           name: rndis-boot-img
           path: tools/flash/build_boot_rndis_osdesc.img
           retention-days: 7
 
+      - name: Upload rootfs image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rndis-rootfs-img
+          path: "/out/rootfs/*.img"
+          retention-days: 7
+
       - name: Usage Instructions
         run: |
 echo ""
 echo "=========================================="
-echo "Generated artifact: rndis-boot-img"
-echo "=========================================="
+echo "Generated artifacts:"
+echo "  • rndis-boot-img (boot.img with OS Descriptor)"
+echo "  • rndis-rootfs-img (rootfs.img)"
 echo ""
 echo "This boot image includes Microsoft OS Descriptor that enables:"
 echo "  • Windows automatic RNDIS driver recognition"
@@ -85,9 +102,11 @@ echo "  • No need to reinstall drivers on each connection"
 echo "  • Subclass 0x06 (ECM/RNDIS) with MS OS Descriptor"
 echo ""
 echo "To use:"
-echo "  1. Download the artifact from this workflow run"
-echo "  2. Flash to device via EDL mode:"
-echo "     python tools/edl/flash_410stick.py --os pmos"
-echo "  3. Disconnect and reconnect USB"
-echo "  4. Windows will auto-install RNDIS driver"
+echo "  1. Download the artifacts from this workflow run"
+echo "  2. Flash boot.img via EDL mode:"
+echo "     python tools/edl/flash_410stick.py --os pmos --boot tools/flash/build_boot_rndis_osdesc.img"
+echo "  3. Flash rootfs.img via EDL mode:"
+echo "     python tools/edl/flash_410stick.py --os pmos --rootfs <path_to_rootfs_img>"
+echo "  4. Disconnect and reconnect USB"
+echo "  5. Windows will auto-install RNDIS driver"
 echo "=========================================="
