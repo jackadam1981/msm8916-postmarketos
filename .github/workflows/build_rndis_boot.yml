@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号 (如: 23.02, auto)'
+        description: '版本号 (如: auto, 23.02)'
         default: 'auto'
         required: false
 
@@ -17,35 +17,69 @@ jobs:
     runs-on: linux-latest
 
     steps:
+      # -------------------------------------------------------------
+      # 1. Checkout repository
+      # -------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # -------------------------------------------------------------
+      # 2. Set up Python (for version check and tooling)
+      # -------------------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
+      # -------------------------------------------------------------
+      # 3. Check PMOS version (auto vs latest release)
+      # -------------------------------------------------------------
       - name: Check PMOS version
-        run: python scripts/check_version.py ${{ github.event.inputs.version }}
+        run: python scripts/check_version.py "${{ github.event.inputs.version }}"
 
-      - name: Conditional build step
-        if: success()
-        run: echo "🔨 版本检查通过，开始构建..."
-
+      # -------------------------------------------------------------
+      # 4. Build from PMOS source (core compilation)
+      # -------------------------------------------------------------
       - name: Build from PMOS source
-        if: failure()  # 仅在版本检查需要构建时运行
-        run: python scripts/pmos_build.py --version ${{ github.event.inputs.version }}
+        # 仅在版本检查通过（即需要构建时）运行
+        if: success()
+        run: |
+          set -e
+          echo "🔧 安装构建依赖..."
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pmbootstrap git e2fsprogs kmod cramfsprogs dosfstools
+          echo "🔧 初始化 pmbootstrap..."
+          pmbootstrap init --answer-timeout 30 <<EOF
+auto
+default
+default
+EOF
+          echo "🔧 添加设备支持 msm8916..."
+          pmbootstrap config --add-device msm8916
+          echo "🔧 开始编译 boot.img..."
+          pmbootstrap build boot
+          echo "✅ boot.img 构建完成"
 
+      # -------------------------------------------------------------
+      # 5. Verify OS Descriptor integration
+      # -------------------------------------------------------------
       - name: Verify OS Descriptor
-        run: python scripts/compile_rndis_boot.py
+        run: python scripts/compile_rndis_boot.py --verify-only
 
-      - name: Upload boot image artifact
+      # -------------------------------------------------------------
+      # 6. Upload boot image artifact
+      # -------------------------------------------------------------
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rndis-boot-img
           path: tools/flash/build_boot_rndis_osdesc.img
           retention-days: 7
-          
+
+      # -------------------------------------------------------------
+      # 7. Usage Instructions (placeholder for rndis/led features)
+      # -------------------------------------------------------------
       - name: Usage Instructions
         run: |
           echo ""
@@ -53,7 +87,8 @@ jobs:
           echo "Generated artifact: rndis-boot-img"
           echo "=========================================="
           echo ""
-          echo "This boot image includes Microsoft OS Descriptor that enables:"
+          echo "This boot image is built from postmarketOS source"
+          echo "and includes Microsoft OS Descriptor that enables:"
           echo "  • Windows automatic RNDIS driver recognition"
           echo "  • No need to reinstall drivers on each connection"
           echo "  • Subclass 0x06 (ECM/RNDIS) with MS OS Descriptor"
@@ -64,4 +99,6 @@ jobs:
           echo "     python tools/edl/flash_410stick.py --os pmos"
           echo "  3. Disconnect and reconnect USB"
           echo "  4. Windows will auto-install RNDIS driver"
+          echo "  5. (Future) Custom rndis/led configurations can be"
+          echo "     added via workflow steps below"
           echo "=========================================="
