@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       # -------------------------------------------------------------
-      # 2. Set up Python (for version check and tooling)
+      # 2. Set up Python
       # -------------------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,7 +41,6 @@ jobs:
       # 4. Build from PMOS source (core compilation)
       # -------------------------------------------------------------
       - name: Build from PMOS source
-        # 仅在版本检查通过（即需要构建时）运行
         if: success()
         run: |
           set -e
@@ -62,13 +61,29 @@ EOF
           echo "✅ boot.img 构建完成"
 
       # -------------------------------------------------------------
-      # 5. Verify OS Descriptor integration
+      # 5. Verify OS Descriptor (inline YAML - 精简版)
       # -------------------------------------------------------------
       - name: Verify OS Descriptor
-        run: python scripts/compile_rndis_boot.py --verify-only
+        run: |
+          python3 -c "
+import struct, sys
+ok = False
+try:
+    with open('tools/flash/build_boot_rndis_osdesc.img', 'rb') as f:
+        d = f.read()
+    s = len(d) / 1024 / 1024
+    v = struct.unpack('<H', d[4:6])[0] if len(d) > 6 else 0
+    p = struct.unpack('<H', d[6:8])[0] if len(d) > 8 else 0
+    ok = s >= 20 and v == 0x05c6 and p == 0x90b4
+    sys.exit(0 if ok else 1)
+except:
+    sys.exit(1)
+"
+        # 退出码捕获: 0=通过, 1=失败
+        # workflow 会根据 exit code 自动处理
 
       # -------------------------------------------------------------
-      # 6. Upload boot image artifact
+      # 6. Upload artifact
       # -------------------------------------------------------------
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -78,27 +93,24 @@ EOF
           retention-days: 7
 
       # -------------------------------------------------------------
-      # 7. Usage Instructions (placeholder for rndis/led features)
+      # 7. Usage Instructions
       # -------------------------------------------------------------
       - name: Usage Instructions
         run: |
-          echo ""
-          echo "=========================================="
-          echo "Generated artifact: rndis-boot-img"
-          echo "=========================================="
-          echo ""
-          echo "This boot image is built from postmarketOS source"
-          echo "and includes Microsoft OS Descriptor that enables:"
-          echo "  • Windows automatic RNDIS driver recognition"
-          echo "  • No need to reinstall drivers on each connection"
-          echo "  • Subclass 0x06 (ECM/RNDIS) with MS OS Descriptor"
-          echo ""
-          echo "To use:"
-          echo "  1. Download the artifact from this workflow run"
-          echo "  2. Flash to device via EDL mode:"
-          echo "     python tools/edl/flash_410stick.py --os pmos"
-          echo "  3. Disconnect and reconnect USB"
-          echo "  4. Windows will auto-install RNDIS driver"
-          echo "  5. (Future) Custom rndis/led configurations can be"
-          echo "     added via workflow steps below"
-          echo "=========================================="
+echo ""
+echo "=========================================="
+echo "Generated artifact: rndis-boot-img"
+echo "=========================================="
+echo ""
+echo "This boot image includes Microsoft OS Descriptor that enables:"
+echo "  • Windows automatic RNDIS driver recognition"
+echo "  • No need to reinstall drivers on each connection"
+echo "  • Subclass 0x06 (ECM/RNDIS) with MS OS Descriptor"
+echo ""
+echo "To use:"
+echo "  1. Download the artifact from this workflow run"
+echo "  2. Flash to device via EDL mode:"
+echo "     python tools/edl/flash_410stick.py --os pmos"
+echo "  3. Disconnect and reconnect USB"
+echo "  4. Windows will auto-install RNDIS driver"
+echo "=========================================="
