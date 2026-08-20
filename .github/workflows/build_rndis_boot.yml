@@ -1,0 +1,67 @@
+name: Build RNDIS Boot and Rootfs Images from PMOS Source
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如: auto, 23.02)'
+        default: 'auto'
+        required: false
+
+jobs:
+  build-boot-and-rootfs:
+    runs-on: linux-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check PMOS version
+        run: python scripts/check_version.py "${{ github.event.inputs.version }}"
+
+      - name: Build boot and rootfs from PMOS source
+        if: success()
+        run: |
+          set -e
+          echo "🔧 安装构建依赖..."
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pmbootstrap git e2fsprogs kmod cramfsprogs dosfstools
+          echo "🔧 初始化 pmbootstrap..."
+          printf "auto\ndefault\ndefault" | pmbootstrap init --answer-timeout 30
+          echo "🔧 添加设备支持 msm8916..."
+          pmbootstrap config --add-device msm8916
+          echo "🔧 编译 boot.img..."
+          pmbootstrap build boot
+          echo "✅ boot.img 构建完成"
+          echo "🔧 编译 rootfs.img..."
+          pmbootstrap build rootfs
+          echo "✅ rootfs.img 构建完成"
+
+      - name: Verify OS Descriptor (boot.img)
+        run: python scripts/verify_osdesc.py
+      - name: Upload boot image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rndis-boot-img
+          path: tools/flash/build_boot_rndis_osdesc.img
+          retention-days: 7
+
+      - name: Upload rootfs image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rndis-rootfs-img
+          path: "/out/rootfs/*.img"
+          retention-days: 7
+
+      - name: Usage Instructions
+        run: echo "See artifact logs for usage details"
