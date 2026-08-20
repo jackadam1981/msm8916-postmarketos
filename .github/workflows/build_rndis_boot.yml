@@ -1,4 +1,4 @@
-name: Build RNDIS Boot Image with Windows Auto-Driver Support
+name: Build RNDIS Boot Image from PMOS Source
 
 on:
   push:
@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如: 23.02, auto)'
+        default: 'auto'
+        required: false
 
 jobs:
   build-boot:
-    runs-on: windows-latest
+    runs-on: linux-latest
 
     steps:
       - name: Checkout repository
@@ -20,7 +25,18 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Compile RNDIS Boot Image (Independent)
+      - name: Check PMOS version
+        run: python scripts/check_version.py ${{ github.event.inputs.version }}
+
+      - name: Conditional build step
+        if: success()
+        run: echo "🔨 版本检查通过，开始构建..."
+
+      - name: Build from PMOS source
+        if: failure()  # 仅在版本检查需要构建时运行
+        run: python scripts/pmos_build.py --version ${{ github.event.inputs.version }}
+
+      - name: Verify OS Descriptor
         run: python scripts/compile_rndis_boot.py
 
       - name: Upload boot image artifact
