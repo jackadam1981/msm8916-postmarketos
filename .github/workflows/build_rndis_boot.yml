@@ -20,13 +20,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Build boot image with OS Descriptor
-        run: |
-          python scripts/flash_410stick.py --os pmos --boot tools/flash/build_boot_rndis_osdesc.img
-          
-      - name: Verify OS Descriptor integration
-        run: python tools/verify_os_desc.py tools/flash/build_boot_rndis_osdesc.img
-          
+      - name: Compile RNDIS Boot Image
+        run: python scripts/compile_rndis_boot.py
+
       - name: Upload boot image artifact
         uses: actions/upload-artifact@v4
         with:
