@@ -1,0 +1,54 @@
+name: Build lk1st
+
+on:
+    workflow_dispatch:
+        inputs:
+            lk1st_ref:
+                description: 'lk1st 婧愮爜 git ref (commit/branch/tag)'
+                required: false
+                default: 'ce7fc78e'
+
+jobs:
+    build-lk1st:
+        runs-on: ubuntu-latest
+        container:
+            image: jackadam/pmos_build:260715
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  sparse-checkout: patches
+
+            - name: Clone lk2nd
+              run: |
+                  git clone https://github.com/msm8916-mainline/lk2nd.git /src/lk2nd
+                  git -C /src/lk2nd checkout ${{ github.event.inputs.lk1st_ref }}
+
+            - name: Apply patches
+              run: |
+                  if ls patches/lk2nd-*.patch 1>/dev/null 2>&1; then
+                    echo "Applying lk2nd patches..."
+                    for p in patches/lk2nd-*.patch; do
+                      echo "  $(basename $p)"
+                      git -C /src/lk2nd am -q "$GITHUB_WORKSPACE/$p" 2>/dev/null || \
+                        git -C /src/lk2nd apply "$GITHUB_WORKSPACE/$p" 2>/dev/null || true
+                    done
+                  fi
+
+            - name: Build lk1st
+              run: |
+                  make -C /src/lk2nd TOOLCHAIN_PREFIX=arm-none-eabi- lk1st-msm8916
+
+            - name: Clone qtestsign
+              run: |
+                  git clone --depth=1 https://github.com/msm8916-mainline/qtestsign.git /src/qtestsign
+                  pip3 install cryptography --break-system-packages --no-cache-dir
+
+            - name: Sign lk1st
+              run: |
+                  python3 /src/qtestsign/qtestsign.py aboot /src/lk2nd/build-lk1st-msm8916/emmc_appsboot.mbn
+
+            - name: Upload artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: lk1st-msm8916
+                  path: /src/lk2nd/build-lk1st-msm8916/emmc_appsboot-test-signed.mbn

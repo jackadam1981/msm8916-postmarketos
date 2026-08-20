@@ -1,0 +1,41 @@
+From a418f421b412f3393140f977adf94b30068e9f79 Mon Sep 17 00:00:00 2001
+From: test <test@test.com>
+Date: Thu, 16 Jul 2026 09:27:11 +0800
+Subject: [PATCH] UART fastboot detect for headless devices
+
+---
+ app/aboot/aboot.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/app/aboot/aboot.c b/app/aboot/aboot.c
+index a4514431..f2a2b496 100644
+--- a/app/aboot/aboot.c
++++ b/app/aboot/aboot.c
+@@ -5603,6 +5603,25 @@ void aboot_init(const struct app_descriptor *app)
+ 		boot_into_fastboot = true;
+ 	#endif
+ 
++	/*
++	 * Check UART for key press to enter fastboot mode.
++	 * Poll for ~3 seconds: any character on UART RX triggers fastboot.
++	 * Useful for headless devices without physical volume keys (e.g. 4G dongles).
++	 */
++	if (!boot_into_fastboot) {
++		int detect_loops = 300;
++		dprintf(ALWAYS, "UART fastboot: press any key within 3s...\n");
++		while (detect_loops-- > 0) {
++			char c;
++			if (dgetc(&c, false) == 0) {
++				dprintf(ALWAYS, "UART key detected, entering fastboot\n");
++				boot_into_fastboot = true;
++				break;
++			}
++			udelay(10000);
++		}
++	}
++
+ #if USE_PON_REBOOT_REG
+ 	reboot_mode = check_hard_reboot_mode();
+ #else
+-- 
+2.54.0.windows.1

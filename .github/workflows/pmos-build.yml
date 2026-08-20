@@ -1,0 +1,182 @@
+name: Build pmOS for MSM8916
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'pmOS variant (phosh, phosh_light, sxmo, etc.)'
+        required: true
+        default: 'phosh'
+      release_channel:
+        description: 'postmarketOS release channel'
+        required: true
+        default: 'edge'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      packages: read
+
+    steps:
+      # ==================================================================
+      # 1. Checkout repository
+      # ==================================================================
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # ==================================================================
+      # 2. Install host dependencies (pmbootstrap needs host loop devices)
+      # ==================================================================
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq kpartx coreutils parted e2fsprogs procps kmod
+
+      # ==================================================================
+      # 3. Install pmbootstrap (latest, from post-GitLab-migration repo)
+      # ==================================================================
+      - name: Install pmbootstrap
+        run: |
+          git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /tmp/pmbootstrap
+          sudo ln -sf /tmp/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
+          pmbootstrap --version
+
+      # ==================================================================
+      # 4. Build rootfs (official pmaports + local device overlay)
+      # ==================================================================
+      - name: Build rootfs and images
+        run: |
+          set -eu
+          DEVICE="410stick-ufi003-mb-v02"
+          WORK="$HOME/.local/var/pmbootstrap"
+          OVERLAY_SRC="$GITHUB_WORKSPACE/config/device-testing"
+
+          echo "=== Loop device support ==="
+          ls -la /dev/loop* 2>&1 || true
+          modprobe loop 2>&1 || true
+
+          mkdir -p "$WORK/cache_git"
+          printf '8\n' > "$WORK/version"
+
+          git clone --depth=1 \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
+            "$WORK/cache_git/pmaports"
+
+          # Merge local device overlay
+          if [ -d "$OVERLAY_SRC" ]; then
+            echo "=== Merging local device overlay from $OVERLAY_SRC ==="
+            for device_dir in "$OVERLAY_SRC"/*/; do
+              [ -d "$device_dir" ] || continue
+              devname=$(basename "$device_dir")
+              echo "  Adding device: $devname"
+              cp -r "$device_dir" "$WORK/cache_git/pmaports/device/testing/$devname"
+            done
+          fi
+
+          DEVICE_DIR="device-${DEVICE}"
+          if [ ! -f "$WORK/cache_git/pmaports/device/testing/${DEVICE_DIR}/deviceinfo" ]; then
+            echo "ERROR: Device overlay not found at device/testing/${DEVICE_DIR}/deviceinfo"
+            ls "$WORK/cache_git/pmaports/device/testing/" 2>/dev/null || echo "(device/testing/ missing)"
+            exit 1
+          fi
+
+          git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
+            "$(git -C "$WORK/cache_git/pmaports" rev-parse HEAD)"
+          echo "=== pmaports git refs ==="
+          git -C "$WORK/cache_git/pmaports" show-ref | head -5
+
+          mkdir -p "$HOME/.config"
+          printf '%s\n' \
+            '[pmbootstrap]' \
+            "work = $WORK" \
+            "device = $DEVICE" \
+            'ui = console' \
+            'user = pmos' \
+            'extra_space = 0' \
+            '' \
+            '[mirrors]' \
+            'alpine = https://dl-cdn.alpinelinux.org/alpine/' \
+            'pmaports = https://mirror.postmarketos.org/postmarketos/' \
+            > "$HOME/.config/pmbootstrap_v3.cfg"
+          cat "$HOME/.config/pmbootstrap_v3.cfg"
+
+          pmbootstrap --as-root install --password pmos --no-fde
+
+          pmbootstrap --as-root shutdown
+
+      # ==================================================================
+      # 5. Collect images
+      # ==================================================================
+      - name: Collect images
+        run: |
+          set -eu
+          WORK="$HOME/.local/var/pmbootstrap"
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          echo "=== Copying images to $GITHUB_WORKSPACE/out/ ==="
+          find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
+            -not -path "*/cache*" 2>/dev/null | while read f; do
+            cp -L "$f" "$GITHUB_WORKSPACE/out/" 2>/dev/null || true
+          done
+          ls -lh "$GITHUB_WORKSPACE/out/"
+
+      # ==================================================================
+      # 6. Split images over 2GB (GitHub release limit)
+      # ==================================================================
+      - name: Split large images
+        run: |
+          cd "$GITHUB_WORKSPACE/out"
+          for f in *.img *.img.xz *.gz; do
+            [ -f "$f" ] || continue
+            size=$(stat -c%s "$f" 2>/dev/null || echo 0)
+            if [ "$size" -gt 2000000000 ]; then
+              echo "Splitting large file: $f ($size bytes)"
+              split -b 1900M -d -a 2 "$f" "$f.part."
+              rm -f "$f"
+            fi
+          done
+          ls -lh
+
+      # ==================================================================
+      # 7. Upload to GitHub Releases
+      # ==================================================================
+      - name: Create Release
+        uses: softprops/action-gh-release@v3.0.2
+        with:
+          tag_name: v2024.08-msm8916
+          name: "MSM8916 pmOS Build - ${{ github.event.inputs.variant }} - ${{ github.event.inputs.release_channel }}"
+          files: out/*
+          body: |
+            ## 📱 postmarketOS for MSM8916 (UFI003-02)
+
+            **Device**: UFI003-02 (MSM8916 Snapdragon 410)
+            **Variant**: ${{ github.event.inputs.variant }}
+            **Channel**: ${{ github.event.inputs.release_channel }}
+
+            ### 📥 Download
+            - `410stick-ufi003-mb-v02.img` - Full rootfs image
+            - `boot.img` - Fastboot bootable image
+            - `vmlinuz` - Kernel image
+
+            ### 🛠️ Flash Instructions
+            **Using fastboot**:
+            ```bash
+            # 1. Boot to fastboot: Vol Down + Power + USB
+            # 2. flash boot: fastboot flash boot boot.img
+            # 3. flash rootfs: fastboot flash userdata 410stick-ufi003-mb-v02.img
+            # 4. Reboot: fastboot reboot
+            ```
+
+            ### 📋 Notes
+            - NV data (modem, persist, etc.) preserved in original partitions
+            - based on postmarketOS `edge` channel
+            - Device: `410stick-ufi003-mb-v02` (MSM8916 / UFI003-02)
+      # ==================================================================
+      # 8. Notify (optional)
+      # ==================================================================
+      - name: Success notification
+        run: echo "✅ pmOS build completed successfully for MSM8916!"

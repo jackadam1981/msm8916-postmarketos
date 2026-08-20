@@ -1,0 +1,14 @@
+services:
+  builder:
+    image: jackadam/pmos_build:260715
+    container_name: pmbuild
+    command: ["sleep", "infinity"]
+    privileged: true
+    working_dir: /build
+    volumes:
+      - .:/build
+      - pmb-work:/root/.local/var/pmbootstrap
+    tty: true
+
+volumes:
+  pmb-work:

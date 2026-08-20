@@ -1,0 +1,81 @@
+name: build-db410c
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-db410c.yml'
+
+jobs:
+  build-rootfs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq kpartx coreutils parted e2fsprogs
+
+      - name: Install pmbootstrap
+        run: |
+          git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /tmp/pmbootstrap
+          sudo ln -sf /tmp/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
+          pmbootstrap --version
+
+      - name: Build DB410c rootfs
+        run: |
+          set -eu
+          DEVICE="arrow-db410c"
+          WORK="$HOME/.local/var/pmbootstrap"
+
+          echo "=== Loop device support ==="
+          ls -la /dev/loop* 2>&1 || true
+          modprobe loop 2>&1 || true
+
+          mkdir -p "$WORK/cache_git"
+          printf '8\n' > "$WORK/version"
+
+          git clone --depth=1 \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
+            "$WORK/cache_git/pmaports"
+
+          DEVICE_DIR="device-${DEVICE}"
+          echo "=== Checking for $DEVICE_DIR ==="
+          find "$WORK/cache_git/pmaports/device" -name "$DEVICE_DIR" -type d 2>/dev/null || echo "NOT FOUND"
+
+          git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
+            "$(git -C "$WORK/cache_git/pmaports" rev-parse HEAD)"
+
+          mkdir -p "$HOME/.config"
+          printf '%s\n' \
+            '[pmbootstrap]' \
+            "work = $WORK" \
+            "device = $DEVICE" \
+            'ui = console' \
+            'user = pmos' \
+            'extra_space = 0' \
+            '' \
+            '[mirrors]' \
+            'alpine = https://dl-cdn.alpinelinux.org/alpine/' \
+            'pmaports = https://mirror.postmarketos.org/postmarketos/' \
+            > "$HOME/.config/pmbootstrap_v3.cfg"
+          cat "$HOME/.config/pmbootstrap_v3.cfg"
+
+          pmbootstrap --as-root install --password pmos --no-fde
+
+          pmbootstrap --as-root shutdown
+
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          echo "=== Copying images to $GITHUB_WORKSPACE/out/ ==="
+          find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
+            -not -path "*/cache*" 2>/dev/null | while read f; do
+            cp -L "$f" "$GITHUB_WORKSPACE/out/" 2>/dev/null || true
+          done
+          ls -lh "$GITHUB_WORKSPACE/out/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: db410c-images
+          path: ${{ github.workspace }}/out/
+          retention-days: 90
