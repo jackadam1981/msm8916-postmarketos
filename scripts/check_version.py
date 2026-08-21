@@ -14,7 +14,7 @@ check_version.py - postmarketOS 版本检查脚本
     python scripts/check_version.py 23.02    # 指定当前版本
 """
 
-import requests
+import urllib.request
 import sys
 import os
 from pathlib import Path
