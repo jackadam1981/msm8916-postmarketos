@@ -35,7 +35,7 @@ jobs:
           echo "🔧 安装构建依赖..."
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            pmbootstrap git e2fsprogs kmod cramfsprogs dosfstools
+            pmbootstrap git e2fsprogs kmod dosfstools
           echo "🔧 初始化 pmbootstrap..."
           printf "auto\ndefault\ndefault" | pmbootstrap init --answer-timeout 30
           echo "🔧 添加设备支持 msm8916..."
