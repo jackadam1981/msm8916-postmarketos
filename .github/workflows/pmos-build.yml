@@ -36,6 +36,8 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq kpartx coreutils parted e2fsprogs procps kmod
+          # Ensure loop devices are available for pmbootstrap
+          modprobe loop 2>&1 || echo "⚠️ loop module not available"
 
       # ==================================================================
       # 3. Install pmbootstrap (latest, from post-GitLab-migration repo)
@@ -63,9 +65,15 @@ jobs:
           mkdir -p "$WORK/cache_git"
           printf '8\n' > "$WORK/version"
 
-          git clone --depth=1 \
-            https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
-            "$WORK/cache_git/pmaports"
+          # Use cached pmaports if available, otherwise clone fresh
+          if [ ! -d "$WORK/cache_git/pmaports" ]; then
+            echo "=== Cloning pmaports (first run) ==="
+            git clone --depth=1 \
+              https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
+              "$WORK/cache_git/pmaports"
+          else
+            echo "=== Using cached pmaports ==="
+          fi
 
           # Merge local device overlay
           if [ -d "$OVERLAY_SRC" ]; then
