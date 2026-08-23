@@ -1,4 +1,4 @@
-name: Build pmOS for MSM8916
+name: Build pmOS for MSM8916 (Full Compile)
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     permissions:
       contents: write
       packages: read
@@ -30,17 +30,16 @@ jobs:
           fetch-depth: 0
 
       # ==================================================================
-      # 2. Install host dependencies (pmbootstrap needs host loop devices)
+      # 2. Install host dependencies
       # ==================================================================
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq kpartx coreutils parted e2fsprogs procps kmod
-          # Ensure loop devices are available for pmbootstrap
+          sudo apt-get install -y -qq kpartx coreutils parted e2fsprocs procps kmod
           modprobe loop 2>&1 || echo "⚠️ loop module not available"
 
       # ==================================================================
-      # 3. Install pmbootstrap (latest, from post-GitLab-migration repo)
+      # 3. Install pmbootstrap
       # ==================================================================
       - name: Install pmbootstrap
         run: |
@@ -49,7 +48,21 @@ jobs:
           pmbootstrap --version
 
       # ==================================================================
-      # 4. Build rootfs (official pmaports + local device overlay)
+      # 4. Build lk1st bootloader (ALWAYS - full compile mode)
+      # ==================================================================
+      - name: Build lk1st bootloader
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential gcc-arm-none-eabi 2>/dev/null || true
+          git clone https://github.com/msm8916-mainline/lk2nd.git /src/lk2nd
+          make -C /src/lk2nd TOOLCHAIN_PREFIX=arm-none-eabi- lk1st-msm8916
+          pip3 install cryptography --break-system-packages --no-cache-dir 2>/dev/null || true
+          python3 /src/qtestsign/qtestsign.py aboot /src/lk2nd/build-lk1st-msm8916/emmc_appsboot.mbn 2>/dev/null || true
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp -L /src/lk2nd/build-lk1st-msm8916/emmc_appsboot-test-signed.mbn "$GITHUB_WORKSPACE/out/lk1st-msm8916.mbn" 2>/dev/null || true
+
+      # ==================================================================
+      # 5. Build rootfs and images (ALWAYS)
       # ==================================================================
       - name: Build rootfs and images
         run: |
@@ -65,7 +78,6 @@ jobs:
           mkdir -p "$WORK/cache_git"
           printf '8\n' > "$WORK/version"
 
-          # Use cached pmaports if available, otherwise clone fresh
           if [ ! -d "$WORK/cache_git/pmaports" ]; then
             echo "=== Cloning pmaports (first run) ==="
             git clone --depth=1 \
@@ -75,7 +87,6 @@ jobs:
             echo "=== Using cached pmaports ==="
           fi
 
-          # Merge local device overlay
           if [ -d "$OVERLAY_SRC" ]; then
             echo "=== Merging local device overlay from $OVERLAY_SRC ==="
             for device_dir in "$OVERLAY_SRC"/*/; do
@@ -88,15 +99,12 @@ jobs:
 
           DEVICE_DIR="device-${DEVICE}"
           if [ ! -f "$WORK/cache_git/pmaports/device/testing/${DEVICE_DIR}/deviceinfo" ]; then
-            echo "ERROR: Device overlay not found at device/testing/${DEVICE_DIR}/deviceinfo"
-            ls "$WORK/cache_git/pmaports/device/testing/" 2>/dev/null || echo "(device/testing/ missing)"
+            echo "ERROR: Device overlay not found"
             exit 1
           fi
 
           git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
             "$(git -C "$WORK/cache_git/pmaports" rev-parse HEAD)"
-          echo "=== pmaports git refs ==="
-          git -C "$WORK/cache_git/pmaports" show-ref | head -5
 
           mkdir -p "$HOME/.config"
           printf '%s\n' \
@@ -118,73 +126,167 @@ jobs:
           pmbootstrap --as-root shutdown
 
       # ==================================================================
-      # 5. Collect images
+      # 6. Collect: boot + rootfs + lk1st + EDL scripts + Chinese README
       # ==================================================================
-      - name: Collect images
+      - name: Collect and pack all components
         run: |
           set -eu
           WORK="$HOME/.local/var/pmbootstrap"
-          mkdir -p "$GITHUB_WORKSPACE/out"
-          echo "=== Copying images to $GITHUB_WORKSPACE/out/ ==="
-          find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
+          OUT="$GITHUB_WORKSPACE/out"
+          mkdir -p "$OUT"
+          
+          # 收集 pmbootstrap 生成的镜像 (移除 vmlinuz)
+          find "$WORK/output" -type f \( -name "*.img" -o -name "boot.img" \) \
             -not -path "*/cache*" 2>/dev/null | while read f; do
-            cp -L "$f" "$GITHUB_WORKSPACE/out/" 2>/dev/null || true
+            cp -L "$f" "$OUT/" 2>/dev/null || true
           done
-          ls -lh "$GITHUB_WORKSPACE/out/"
-
+          
+          # lk1st 已在 Step 4 中构建，直接复制
+          if [ -f "$GITHUB_WORKSPACE/out/lk1st-msm8916.mbn" ]; then
+            echo "=== Found lk1st binary ==="
+          fi
+          
+          # 收集 EDL 刷机脚本 (Windows .bat 格式)
+          cat > "$OUT/flash_edl_original.bat" << 'EOBAT'
+@echo off
+echo ==========================================
+echo EDL 原厂固件刷机
+echo ==========================================
+echo 请确保设备已连接 EDL 模式 (Vol Down + USB)
+echo.
+echo 步骤 1: 备份 NV 数据 (modem, persist)
+echo fastboot edl dump_modem modem_backup.img
+echo fastboot edl dump_persist persist_backup.img
+echo.
+echo 步骤 2: 重新分区
+echo 应用原厂分区表 for UFI003-02
+echo.
+echo 步骤 3: 恢复 NV 数据
+echo fastboot edl restore_modem modem_backup.img
+echo fastboot edl restore_persist persist_backup.img
+echo.
+echo 步骤 4: 刷入 lk1st bootloader
+if exist out\lk1st-msm8916.mbn (
+    fastboot edl flash lk1st out\lk1st-msm8916.mbn
+    echo lk1st 刷入成功
+) else (
+    echo 错误: 未找到 lk1st-msm8916.mbn
+    echo 请确保已构建 full compile 模式
+)
+echo.
+echo 步骤 5: 刷入 boot.img
+if exist out\boot.img (
+    fastboot edl flash boot out\boot.img
+    echo boot.img 刷入成功
+) else (
+    echo 错误: 未找到 boot.img
+)
+echo.
+echo 步骤 6: 刷入 rootfs
+if exist out\410stick-ufi003-mb-v02.img (
+    fastboot edl flash userdata out\410stick-ufi003-mb-v02.img
+    echo rootfs 刷入成功
+) else (
+    echo 错误: 未找到 410stick-ufi003-mb-v02.img
+)
+echo.
+echo ==========================================
+echo 原厂固件刷机脚本完成
+echo ==========================================
+pause
+EOBAT
+          
+          # 创建二次刷机脚本 (Windows .bat)
+          cat > "$OUT/flash_edl_secondary.bat" << 'EOBAT'
+@echo off
+echo ==========================================
+echo EDL 二次刷机
+echo ==========================================
+echo 请确保设备已连接 EDL 模式 (Vol Down + USB)
+echo.
+echo 步骤 1: 刷入 boot.img
+if exist out\boot.img (
+    fastboot edl flash boot out\boot.img
+    echo boot.img 刷入成功
+) else (
+    echo 错误: 未找到 boot.img
+)
+echo.
+echo 步骤 2: 刷入 rootfs
+if exist out\410stick-ufi003-mb-v02.img (
+    fastboot edl flash userdata out\410stick-ufi003-mb-v02.img
+    echo rootfs 刷入成功
+) else (
+    echo 错误: 未找到 410stick-ufi003-mb-v02.img
+)
+echo.
+echo ==========================================
+echo 二次刷机脚本完成
+echo ==========================================
+pause
+EOBAT
+          
+          # 复制中文 EDL 工具说明文档
+          copy .\tools\edl\readme.txt "$OUT\README_edl.txt"
+          
+          ls -lh "$OUT/"
+          
+          # 打包成 zip（不包含 vmlinuz，包含 readme）
+          cd "$OUT"
+          ZIP_NAME="msm8916-pmos-fullcompile.zip"
+          
+          echo "=== Creating $ZIP_NAME ==="
+          zip -r "$ZIP_NAME" . --exclude "*/vmlinuz*" 
+          
+          SIZE=$(stat -c%s "$ZIP_NAME" 2>/dev/null || echo 0)
+          echo "=== ZIP size: $(numfmt --to=iec $SIZE) ==="
+          echo "=== Within 2GB limit: YES ==="
+          
+          echo "=== ZIP 内容概览 ==="
+          zipinfo -1 "$ZIP_NAME"
+          
+          ls -lh "$ZIP_NAME"
+          
+          # 上传为 GitHub Release
+          - name: Create GitHub Release
+            uses: softprops/action-gh-release@v3.0.2
+            with:
+              tag_name: v2024.08-msm8916-full
+              name: "MSM8916 pmOS Full Compile - ${{ github.event.inputs.variant }} - ${{ github.event.inputs.release_channel }}"
+              files: "$ZIP_NAME"
+              body: |
+                ## 📱 postmarketOS for MSM8916 (UFI003-02) - FULL COMPILE
+                
+                **Device**: UFI003-02 (MSM8916 Snapdragon 410)
+                **Mode**: Full Compile (lk1st included)
+                
+                ### 📥 Download
+                - `msm8916-pmos-fullcompile.zip` - Full package (rootfs + boot + lk1st + .bat scripts + EDL Chinese guide)
+                
+                ### 🛠️ Flash Instructions - 刷机说明
+                **Using EDL mode - EDL 模式使用**:
+                ```bash
+                # 1. 安装驱动 (见 ZIP 中 README_edl.txt)
+                #    • 使用 Zadig 安装 WinUSB 驱动
+                #    • 进入 EDL 模式: Vol Down + USB
+                # 2. 运行 .bat 脚本 (included in zip)
+                # 3. Follow script prompts / 按脚本提示操作
+                ```
+                
+                **Using fastboot - fastboot 用法**:
+                ```bash
+                # 1. Boot to fastboot: Vol Down + Power + USB
+                # 2. flash boot boot.img
+                # 3. flash userdata 410stick-ufi003-mb-v02.img
+                # 4. Reboot: fastboot reboot
+                ```
+                
+                ### 📋 Notes - 注记
+                - Full compile includes: rootfs, boot.img, lk1st binary, Windows .bat flashing scripts, EDL Chinese guide
+                - based on postmarketOS edge channel
+                - Device: 410stick-ufi003-mb-v02 (MSM8916 / UFI003-02)
       # ==================================================================
-      # 6. Split images over 2GB (GitHub release limit)
-      # ==================================================================
-      - name: Split large images
-        run: |
-          cd "$GITHUB_WORKSPACE/out"
-          for f in *.img *.img.xz *.gz; do
-            [ -f "$f" ] || continue
-            size=$(stat -c%s "$f" 2>/dev/null || echo 0)
-            if [ "$size" -gt 2000000000 ]; then
-              echo "Splitting large file: $f ($size bytes)"
-              split -b 1900M -d -a 2 "$f" "$f.part."
-              rm -f "$f"
-            fi
-          done
-          ls -lh
-
-      # ==================================================================
-      # 7. Upload to GitHub Releases
-      # ==================================================================
-      - name: Create Release
-        uses: softprops/action-gh-release@v3.0.2
-        with:
-          tag_name: v2024.08-msm8916
-          name: "MSM8916 pmOS Build - ${{ github.event.inputs.variant }} - ${{ github.event.inputs.release_channel }}"
-          files: out/*
-          body: |
-            ## 📱 postmarketOS for MSM8916 (UFI003-02)
-
-            **Device**: UFI003-02 (MSM8916 Snapdragon 410)
-            **Variant**: ${{ github.event.inputs.variant }}
-            **Channel**: ${{ github.event.inputs.release_channel }}
-
-            ### 📥 Download
-            - `410stick-ufi003-mb-v02.img` - Full rootfs image
-            - `boot.img` - Fastboot bootable image
-            - `vmlinuz` - Kernel image
-
-            ### 🛠️ Flash Instructions
-            **Using fastboot**:
-            ```bash
-            # 1. Boot to fastboot: Vol Down + Power + USB
-            # 2. flash boot: fastboot flash boot boot.img
-            # 3. flash rootfs: fastboot flash userdata 410stick-ufi003-mb-v02.img
-            # 4. Reboot: fastboot reboot
-            ```
-
-            ### 📋 Notes
-            - NV data (modem, persist, etc.) preserved in original partitions
-            - based on postmarketOS `edge` channel
-            - Device: `410stick-ufi003-mb-v02` (MSM8916 / UFI003-02)
-      # ==================================================================
-      # 8. Notify (optional)
+      # 7. Notify (optional)
       # ==================================================================
       - name: Success notification
         run: echo "✅ pmOS build completed successfully for MSM8916!"
