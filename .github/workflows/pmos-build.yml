@@ -36,7 +36,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq kpartx coreutils parted e2fsprocs procps kmod
-          modprobe loop 2>&1 || echo "⚠️ loop module not available"
+          modprobe loop 2>&1 || echo "loop module not available"
 
       # ==================================================================
       # 3. Install pmbootstrap
@@ -146,88 +146,12 @@ jobs:
             echo "=== Found lk1st binary ==="
           fi
           
-          # 收集 EDL 刷机脚本 (Windows .bat 格式)
-          cat > "$OUT/flash_edl_original.bat" << 'EOBAT'
-@echo off
-echo ==========================================
-echo EDL 原厂固件刷机
-echo ==========================================
-echo 请确保设备已连接 EDL 模式 (Vol Down + USB)
-echo.
-echo 步骤 1: 备份 NV 数据 (modem, persist)
-echo fastboot edl dump_modem modem_backup.img
-echo fastboot edl dump_persist persist_backup.img
-echo.
-echo 步骤 2: 重新分区
-echo 应用原厂分区表 for UFI003-02
-echo.
-echo 步骤 3: 恢复 NV 数据
-echo fastboot edl restore_modem modem_backup.img
-echo fastboot edl restore_persist persist_backup.img
-echo.
-echo 步骤 4: 刷入 lk1st bootloader
-if exist out\lk1st-msm8916.mbn (
-    fastboot edl flash lk1st out\lk1st-msm8916.mbn
-    echo lk1st 刷入成功
-) else (
-    echo 错误: 未找到 lk1st-msm8916.mbn
-    echo 请确保已构建 full compile 模式
-)
-echo.
-echo 步骤 5: 刷入 boot.img
-if exist out\boot.img (
-    fastboot edl flash boot out\boot.img
-    echo boot.img 刷入成功
-) else (
-    echo 错误: 未找到 boot.img
-)
-echo.
-echo 步骤 6: 刷入 rootfs
-if exist out\410stick-ufi003-mb-v02.img (
-    fastboot edl flash userdata out\410stick-ufi003-mb-v02.img
-    echo rootfs 刷入成功
-) else (
-    echo 错误: 未找到 410stick-ufi003-mb-v02.img
-)
-echo.
-echo ==========================================
-echo 原厂固件刷机脚本完成
-echo ==========================================
-pause
-EOBAT
-          
-          # 创建二次刷机脚本 (Windows .bat)
-          cat > "$OUT/flash_edl_secondary.bat" << 'EOBAT'
-@echo off
-echo ==========================================
-echo EDL 二次刷机
-echo ==========================================
-echo 请确保设备已连接 EDL 模式 (Vol Down + USB)
-echo.
-echo 步骤 1: 刷入 boot.img
-if exist out\boot.img (
-    fastboot edl flash boot out\boot.img
-    echo boot.img 刷入成功
-) else (
-    echo 错误: 未找到 boot.img
-)
-echo.
-echo 步骤 2: 刷入 rootfs
-if exist out\410stick-ufi003-mb-v02.img (
-    fastboot edl flash userdata out\410stick-ufi003-mb-v02.img
-    echo rootfs 刷入成功
-) else (
-    echo 错误: 未找到 410stick-ufi003-mb-v02.img
-)
-echo.
-echo ==========================================
-echo 二次刷机脚本完成
-echo ==========================================
-pause
-EOBAT
+          # 复制 EDL 刷机脚本 (仓库文件，避免 YAML here-doc 解析问题)
+          cp "$GITHUB_WORKSPACE/scripts/flash_edl_original.bat" "$OUT/"
+          cp "$GITHUB_WORKSPACE/scripts/flash_edl_secondary.bat" "$OUT/"
           
           # 复制中文 EDL 工具说明文档
-          copy .\tools\edl\readme.txt "$OUT\README_edl.txt"
+          cp "$GITHUB_WORKSPACE/tools/edl/readme.txt" "$OUT/README_edl.txt"
           
           ls -lh "$OUT/"
           
@@ -246,47 +170,50 @@ EOBAT
           zipinfo -1 "$ZIP_NAME"
           
           ls -lh "$ZIP_NAME"
-          
-          # 上传为 GitHub Release
-          - name: Create GitHub Release
-            uses: softprops/action-gh-release@v3.0.2
-            with:
-              tag_name: v2024.08-msm8916-full
-              name: "MSM8916 pmOS Full Compile - ${{ github.event.inputs.variant }} - ${{ github.event.inputs.release_channel }}"
-              files: "$ZIP_NAME"
-              body: |
-                ## 📱 postmarketOS for MSM8916 (UFI003-02) - FULL COMPILE
-                
-                **Device**: UFI003-02 (MSM8916 Snapdragon 410)
-                **Mode**: Full Compile (lk1st included)
-                
-                ### 📥 Download
-                - `msm8916-pmos-fullcompile.zip` - Full package (rootfs + boot + lk1st + .bat scripts + EDL Chinese guide)
-                
-                ### 🛠️ Flash Instructions - 刷机说明
-                **Using EDL mode - EDL 模式使用**:
-                ```bash
-                # 1. 安装驱动 (见 ZIP 中 README_edl.txt)
-                #    • 使用 Zadig 安装 WinUSB 驱动
-                #    • 进入 EDL 模式: Vol Down + USB
-                # 2. 运行 .bat 脚本 (included in zip)
-                # 3. Follow script prompts / 按脚本提示操作
-                ```
-                
-                **Using fastboot - fastboot 用法**:
-                ```bash
-                # 1. Boot to fastboot: Vol Down + Power + USB
-                # 2. flash boot boot.img
-                # 3. flash userdata 410stick-ufi003-mb-v02.img
-                # 4. Reboot: fastboot reboot
-                ```
-                
-                ### 📋 Notes - 注记
-                - Full compile includes: rootfs, boot.img, lk1st binary, Windows .bat flashing scripts, EDL Chinese guide
-                - based on postmarketOS edge channel
-                - Device: 410stick-ufi003-mb-v02 (MSM8916 / UFI003-02)
+
       # ==================================================================
-      # 7. Notify (optional)
+      # 7. Upload to GitHub Releases
+      # ==================================================================
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3.0.2
+        with:
+          tag_name: v2024.08-msm8916-full
+          name: "MSM8916 pmOS Full Compile - ${{ github.event.inputs.variant }} - ${{ github.event.inputs.release_channel }}"
+          files: out/msm8916-pmos-fullcompile.zip
+          body: |
+            ## postmarketOS for MSM8916 (UFI003-02) - FULL COMPILE
+
+            **Device**: UFI003-02 (MSM8916 Snapdragon 410)
+            **Mode**: Full Compile (lk1st included)
+
+            ### Download
+            - `msm8916-pmos-fullcompile.zip` - Full package (rootfs + boot + lk1st + .bat scripts + EDL Chinese guide)
+
+            ### Flash Instructions - 刷机说明
+            **Using EDL mode - EDL 模式使用**:
+            ```
+            # 1. 安装驱动 (见 ZIP 中 README_edl.txt)
+            #    使用 Zadig 安装 WinUSB 驱动
+            #    进入 EDL 模式: Vol Down + USB
+            # 2. 运行 .bat 脚本 (included in zip)
+            # 3. Follow script prompts / 按脚本提示操作
+            ```
+
+            **Using fastboot - fastboot 用法**:
+            ```
+            # 1. Boot to fastboot: Vol Down + Power + USB
+            # 2. flash boot boot.img
+            # 3. flash userdata 410stick-ufi003-mb-v02.img
+            # 4. Reboot: fastboot reboot
+            ```
+
+            ### Notes - 注记
+            - Full compile includes: rootfs, boot.img, lk1st binary, Windows .bat flashing scripts, EDL Chinese guide
+            - based on postmarketOS edge channel
+            - Device: 410stick-ufi003-mb-v02 (MSM8916 / UFI003-02)
+
+      # ==================================================================
+      # 8. Notify (optional)
       # ==================================================================
       - name: Success notification
-        run: echo "✅ pmOS build completed successfully for MSM8916!"
+        run: echo "pmOS build completed successfully for MSM8916!"
