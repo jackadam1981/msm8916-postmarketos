@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq kpartx coreutils parted e2fsprocs procps kmod
+          sudo apt-get install -y -qq kpartx coreutils parted e2fsprogs procps kmod
           modprobe loop 2>&1 || echo "loop module not available"
 
       # ==================================================================
