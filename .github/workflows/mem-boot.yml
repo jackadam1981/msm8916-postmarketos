@@ -40,16 +40,16 @@ jobs:
           make -C /build/kernel ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
           make -C /build/kernel -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz dtbs
 
-           # ---------- Minimal initramfs for memory‑boot validation ----------
-           mkdir -p /build/initramfs
-           cat > /build/initramfs/init << 'INITEOF'
-               #!/bin/busybox sh
-               # Print marker so we can see it on UART or via adbd (if you start it)
-               echo "pmOS booting from initramfs..."
-               # Keep the initramfs alive for a while so the message is observable
-               sleep 30
-           INITEOF
-           chmod +x /build/initramfs/init
+          # ---------- Minimal initramfs for memory-boot validation ----------
+          mkdir -p /build/initramfs
+          cat > /build/initramfs/init << 'INITEOF'
+          #!/bin/busybox sh
+          # Print marker so we can see it on UART or via adbd (if you start it)
+          echo "pmOS booting from initramfs..."
+          # Keep the initramfs alive for a while so the message is observable
+          sleep 30
+          INITEOF
+          chmod +x /build/initramfs/init
           cd /build/initramfs
           find . | cpio -H newc -o | gzip > /build/out/initramfs.gz
 
@@ -61,37 +61,38 @@ jobs:
           # Append DTB to kernel
           cat "$KERNEL" "$DTB" > /build/out/kernel-dtb.gz
 
-           # Install mkbootimg if not present
-            if ! command -v mkbootimg >/dev/null 2>&1; then
-              if command -v apt-get >/dev/null 2>&1; then
-                apt-get update && apt-get install -y mkbootimg
-              elif command -v apk >/dev/null 2>&1; then
-                apk update && apk add --no-cache mkbootimg
-              elif command -v yum >/dev/null 2>&1; then
-                yum install -y mkbootimg
-              elif command -v dnf >/dev/null 2>&1; then
-                dnf install -y mkbootimg
-              else
-                echo "Unsupported package manager – cannot install mkbootimg"
-                exit 1
-              fi
+          # Install mkbootimg if not present
+          if ! command -v mkbootimg >/dev/null 2>&1; then
+            if command -v apt-get >/dev/null 2>&1; then
+              apt-get update && apt-get install -y mkbootimg
+            elif command -v apk >/dev/null 2>&1; then
+              apk update && apk add --no-cache mkbootimg
+            elif command -v yum >/dev/null 2>&1; then
+              yum install -y mkbootimg
+            elif command -v dnf >/dev/null 2>&1; then
+              dnf install -y mkbootimg
+            else
+              echo "Unsupported package manager – cannot install mkbootimg"
+              exit 1
             fi
-           # mkbootimg (provided in the container image)
-           mkbootimg \
-             --kernel /build/out/kernel-dtb.gz \
-             --ramdisk "$RAMDISK" \
-             --base 0x80000000 \
-             --kernel_offset 0x01000000 \
-             --ramdisk_offset 0x03000000 \
-             --dtb_offset 0x05000000 \
-             --tags_offset 0x00000100 \
-             --pagesize 2048 \
-             --cmdline "console=ttyMSM0,115200n8" \
-             -o /build/out/mem_boot.img
+          fi
 
-           ls -lh /build/out/
-           echo "=== 检查 mkbootimg 版本 ==="
-           mkbootimg --version || echo "mkbootimg 未找到"
+          # mkbootimg (provided in the container image)
+          mkbootimg \
+            --kernel /build/out/kernel-dtb.gz \
+            --ramdisk "$RAMDISK" \
+            --base 0x80000000 \
+            --kernel_offset 0x01000000 \
+            --ramdisk_offset 0x03000000 \
+            --dtb_offset 0x05000000 \
+            --tags_offset 0x00000100 \
+            --pagesize 2048 \
+            --cmdline "console=ttyMSM0,115200n8" \
+            -o /build/out/mem_boot.img
+
+          ls -lh /build/out/
+          echo "=== mkbootimg version ==="
+          mkbootimg --version || echo "mkbootimg not found"
 
       - uses: actions/upload-artifact@v4
         with:

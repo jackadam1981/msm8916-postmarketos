@@ -1,35 +1,51 @@
-name: build-rootfs
+name: Build rootfs for MSM8916
+
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/build-rootfs.yml'
-      - 'config/pmbootstrap-build.cfg'
-      - 'config/device-testing/**'
   workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如: auto, 23.02)'
+        default: 'auto'
+        required: false
 
 jobs:
   build-rootfs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      # ==================================================================
+      # 1. Checkout repository
+      # ==================================================================
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
+      # ==================================================================
+      # 2. Install dependencies
+      # ==================================================================
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq kpartx coreutils parted e2fsprogs
 
+      # ==================================================================
+      # 3. Install pmbootstrap
+      # ==================================================================
       - name: Install pmbootstrap
         run: |
           git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /tmp/pmbootstrap
           sudo ln -sf /tmp/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
           pmbootstrap --version
 
-      - name: Build rootfs
+      # ==================================================================
+      # 4. Build rootfs (official pmaports + local device overlay)
+      # ==================================================================
+      - name: Build rootfs and images
         run: |
           set -eu
           DEVICE="410stick-ufi003-mb-v02"
           WORK="$HOME/.local/var/pmbootstrap"
+          OVERLAY_SRC="$GITHUB_WORKSPACE/config/device-testing"
 
           echo "=== Loop device support ==="
           ls -la /dev/loop* 2>&1 || true
@@ -37,18 +53,11 @@ jobs:
           mkdir -p "$WORK/cache_git"
           printf '8\n' > "$WORK/version"
 
-          # Use cached pmaports if available, otherwise clone fresh
-          if [ ! -d "$WORK/cache_git/pmaports" ]; then
-            echo "=== Cloning pmaports (first run) ==="
-            git clone --depth=1 \
-              https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
-              "$WORK/cache_git/pmaports"
-          else
-            echo "=== Using cached pmaports ==="
-          fi
+          git clone --depth=1 \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
+            "$WORK/cache_git/pmaports"
 
           # Merge local device overlay
-          OVERLAY_SRC="$GITHUB_WORKSPACE/config/device-testing"
           if [ -d "$OVERLAY_SRC" ]; then
             echo "=== Merging local device overlay from $OVERLAY_SRC ==="
             for device_dir in "$OVERLAY_SRC"/*/; do
@@ -98,8 +107,54 @@ jobs:
           done
           ls -lh "$GITHUB_WORKSPACE/out/"
 
-      - uses: actions/upload-artifact@v4
+      # ==================================================================
+      # 5. Split large images (GitHub release limit)
+      # ==================================================================
+      - name: Split large images
+        run: |
+          cd "$GITHUB_WORKSPACE/out"
+          for f in *.img *.img.xz *.gz; do
+            [ -f "$f" ] || continue
+            size=$(stat -c%s "$f" 2>/dev/null || echo 0)
+            if [ "$size" -gt 2000000000 ]; then
+              echo "Splitting large file: $f ($size bytes)"
+              split -b 1900M -d -a 2 "$f" "$f.part."
+              rm -f "$f"
+            fi
+          done
+          ls -lh
+
+      # ==================================================================
+      # 6. Upload to GitHub Releases
+      # ==================================================================
+      - name: Create Release
+        uses: softprops/action-gh-release@v3.0.2
         with:
-          name: pmos-images
-          path: ${{ github.workspace }}/out/
-          retention-days: 90
+          tag_name: v2024.08-msm8916
+          name: "MSM8916 pmOS Build - ${{ github.event.inputs.version }} - edge"
+          files: out/*
+          body: |
+            ## 📱 postmarketOS for MSM8916 (UFI003-02)
+
+            **Device**: UFI003-02 (MSM8916 Snapdragon 410)
+            **Variant**: edge
+            **Channel**: edge
+
+            ### 📥 Download
+            - `410stick-ufi003-mb-v02.img` - Full rootfs image
+            - `boot.img` - Fastboot bootable image
+            - `vmlinuz` - Kernel image
+
+            ### 🛠️ Flash Instructions
+            **Using fastboot**:
+            ```bash
+            # 1. Boot to fastboot: Vol Down + Power + USB
+            # 2. flash boot: fastboot flash boot boot.img
+            # 3. flash rootfs: fastboot flash userdata 410stick-ufi003-mb-v02.img
+            # 4. Reboot: fastboot reboot
+            ```
+
+            ### 📋 Notes
+            - NV data (modem, persist, etc.) preserved in original partitions
+            - based on postmarketOS `edge` channel
+            - Device: `410stick-ufi003-mb-v02` (MSM8916 / UFI003-02)

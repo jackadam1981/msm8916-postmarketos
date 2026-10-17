@@ -1,6 +1,12 @@
-name: build-boot
+name: Build boot.img for MSM8916
+
 on:
   workflow_dispatch:
+    inputs:
+      kernel_ref:
+        description: 'msm8916-mainline/linux git ref'
+        required: false
+        default: 'v6.6-msm8916'
 
 jobs:
   build-boot:
@@ -8,23 +14,37 @@ jobs:
     container:
       image: jackadam/pmos_build:260715
     steps:
-      - uses: actions/checkout@v4
+      # ==================================================================
+      # 1. Checkout repository
+      # ==================================================================
+      - name: Checkout repository
+        uses: actions/checkout@v5
         with:
-          sparse-checkout: |
-            patches
-            scripts
-            config
+          fetch-depth: 0
 
+      # ==================================================================
+      # 2. Install dependencies
+      # ==================================================================
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq kpartx coreutils parted e2fsprogs procps kmod
+          # Ensure loop devices are available
+          modprobe loop 2>&1 || echo "⚠️ loop module not available"
+
+      # ==================================================================
+      # 3. Build kernel + initramfs + boot.img
+      # ==================================================================
       - name: Build kernel + initramfs + boot.img
         run: |
           set -eu
           mkdir -p /build/out /build/kernel /src
 
           # Clone kernel source
-          git clone --depth=1 -b v6.6-msm8916 \
+          git clone --depth=1 -b ${{ github.event.inputs.kernel_ref }} \
             https://github.com/msm8916-mainline/linux.git /build/kernel
 
-          # Apply kernel patches
+          # Apply kernel patches (if any)
           if ls patches/linux-msm8916-*.patch 2>/dev/null; then
             for p in patches/linux-msm8916-*.patch; do
               echo "Applying $p"
@@ -49,7 +69,7 @@ jobs:
           cd /build/initramfs
           find . | cpio -H newc -o | gzip > /build/out/initramfs.gz
 
-          # Create boot.img
+          # Create boot.img (same as pmos-build workflow)
           KERNEL=/build/kernel/arch/arm64/boot/Image.gz
           DTB=/build/kernel/arch/arm64/boot/dts/qcom/msm8916-thwc-ufi001c.dtb
           RAMDISK=/build/out/initramfs.gz

@@ -62,8 +62,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rndis-rootfs-img
-          path: "/out/rootfs/*.img"
+          path: ~/.local/var/pmbootstrap/output/*.img
           retention-days: 7
+          if-no-files-found: warn
 
       - name: Usage Instructions
         run: echo "See artifact logs for usage details"
