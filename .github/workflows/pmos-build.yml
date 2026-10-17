@@ -168,6 +168,14 @@ jobs:
           # 复制 EDL 刷机脚本 (仓库文件，避免 YAML here-doc 解析问题)
           cp "$GITHUB_WORKSPACE/scripts/flash_edl_original.bat" "$OUT/"
           cp "$GITHUB_WORKSPACE/scripts/flash_edl_secondary.bat" "$OUT/"
+
+          # 复制 EDL 工具本体 (edl.exe + firehose loader)，让用户解压即可刷机
+          mkdir -p "$OUT/edl"
+          cp "$GITHUB_WORKSPACE/flash_tools/edl.exe" "$OUT/edl/"
+          cp "$GITHUB_WORKSPACE/flash_tools/prog_emmc_firehose_8916.mbn" "$OUT/edl/"
+          cp "$GITHUB_WORKSPACE/flash_tools/prog_emmc_firehose_8916_gucci_peek.mbn" "$OUT/edl/"
+          echo "=== edl tooling ==="
+          ls -lh "$OUT/edl/"
           
           # 复制中文 EDL 工具说明文档
           cp "$GITHUB_WORKSPACE/tools/edl/readme.txt" "$OUT/README_edl.txt"

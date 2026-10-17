@@ -1,26 +1,121 @@
 @echo off
-echo ==========================================
-echo EDL 二次刷机
-echo ==========================================
-echo 请确保设备已连接 EDL 模式 (Vol Down + USB)
+setlocal enabledelayedexpansion
+title MSM8916 pmOS - Second Flash (EDL)
+
+rem ============================================================
+rem  MSM8916 (UFI003-02) second flash: update boot + rootfs only
+rem  Tool: Temblast EDL Utility (edl\edl.exe)
+rem  Usage: keep this .bat, edl\ folder and images in same dir,
+rem         then double-click this file.
+rem ============================================================
+
+cd /d "%~dp0"
+
+set "EDL=%~dp0edl\edl.exe"
+rem ---- auto pick firehose loader (official DB410c first) ----
+set "LOADER="
+for %%f in ("%~dp0edl\prog_emmc_firehose_8916.mbn" "%~dp0edl\prog_emmc_firehose_8916_gucci_peek.mbn") do (
+    if not defined LOADER if exist "%%~ff" set "LOADER=%%~ff"
+)
+set "BOOT=%~dp0boot.img"
+set "ROOTFS="
+
+rem ---- auto find rootfs image (skip boot.img) ----
+for %%f in ("%~dp0*ufi003*.img" "%~dp0*rootfs*.img" "%~dp0*.img") do (
+    if not defined ROOTFS if exist "%%~ff" (
+        if /i not "%%~nxf"=="boot.img" set "ROOTFS=%%~ff"
+    )
+)
+
+echo ============================================================
+echo   MSM8916 pmOS - Second Flash (boot + rootfs)
+echo ============================================================
+echo   EDL tool : %EDL%
+echo   Loader   : %LOADER%
+echo   boot.img : %BOOT%
+echo   rootfs   : %ROOTFS%
+echo ============================================================
 echo.
-echo 步骤 1: 刷入 boot.img
-if exist out\boot.img (
-    fastboot edl flash boot out\boot.img
-    echo boot.img 刷入成功
-) else (
-    echo 错误: 未找到 boot.img
+
+rem ---- pre-checks ----
+if not exist "%EDL%" (
+    echo [ERROR] edl\edl.exe not found
+    echo         Keep the edl folder next to this script.
+    pause & exit /b 1
+)
+if not exist "%LOADER%" (
+    echo [ERROR] firehose loader not found in edl\
+    pause & exit /b 1
+)
+if not exist "%BOOT%" (
+    echo [ERROR] boot.img not found
+    pause & exit /b 1
+)
+if not defined ROOTFS (
+    echo [ERROR] rootfs image *.img not found
+    pause & exit /b 1
+)
+if not exist "%ROOTFS%" (
+    echo [ERROR] rootfs image missing: %ROOTFS%
+    pause & exit /b 1
+)
+
+echo Put the device into EDL mode (9008):
+echo   1. Power off completely
+echo   2. Hold Volume Down
+echo   3. Plug in USB
+echo   4. Device Manager shows "Qualcomm HS-USB QDLoader 9008"
+echo.
+echo [WARNING] This overwrites boot and userdata partitions.
+echo           All data in userdata will be lost.
+echo.
+choice /c YN /m "Continue flashing"
+if errorlevel 2 (
+    echo Cancelled.
+    pause & exit /b 0
 )
 echo.
-echo 步骤 2: 刷入 rootfs
-if exist out\410stick-ufi003-mb-v02.img (
-    fastboot edl flash userdata out\410stick-ufi003-mb-v02.img
-    echo rootfs 刷入成功
-) else (
-    echo 错误: 未找到 410stick-ufi003-mb-v02.img
+
+rem ---- step 1: load firehose programmer ----
+echo [1/4] Loading firehose programmer...
+"%EDL%" /l"%LOADER%"
+if errorlevel 1 (
+    echo       Load returned error - if device is already in firehose
+    echo       mode this is harmless, continuing.
 )
 echo.
-echo ==========================================
-echo 二次刷机脚本完成
-echo ==========================================
+
+rem ---- step 2: write boot ----
+echo [2/4] Writing boot.img to boot partition...
+"%EDL%" /w /pboot "%BOOT%"
+if errorlevel 1 (
+    echo [FAILED] boot.img write failed
+    echo          Check: WinUSB driver installed? device in 9008 mode?
+    pause & exit /b 1
+)
+echo       boot.img written OK
+echo.
+
+rem ---- step 3: write rootfs ----
+echo [3/4] Writing rootfs to userdata partition (large file, be patient)...
+"%EDL%" /w /puserdata "%ROOTFS%"
+if errorlevel 1 (
+    echo [FAILED] rootfs write failed
+    pause & exit /b 1
+)
+echo       rootfs written OK
+echo.
+
+rem ---- step 4: reset ----
+echo [4/4] Rebooting device...
+"%EDL%" /z
+echo.
+
+echo ============================================================
+echo   Flash complete
+echo ============================================================
+echo   If the device does not boot, check UART (ttyMSM0 115200).
+echo   To restore the stock system use flash_edl_original.bat.
+echo.
 pause
+endlocal
