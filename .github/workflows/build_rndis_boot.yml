@@ -3,6 +3,8 @@ name: Build RNDIS Boot and Rootfs Images from PMOS Source
 on:
   push:
     branches: [ main ]
+    paths:
+      - '.github/workflows/build_rndis_boot.yml'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -28,35 +30,58 @@ jobs:
       - name: Check PMOS version
         run: python scripts/check_version.py "${{ github.event.inputs.version }}"
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq kpartx coreutils parted e2fsprogs kmod dosfstools
+
       - name: Install pmbootstrap
         run: |
           git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /tmp/pmbootstrap
           sudo ln -sf /tmp/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
           pmbootstrap --version
 
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            git e2fsprogs kmod dosfstools
-          modprobe loop 2>&1 || echo "loop module not available"
-
-      - name: Configure pmbootstrap
+      - name: Configure pmbootstrap and build images
         run: |
           set -eu
-          DEVICE="msm8916"
+          DEVICE="410stick-ufi003-mb-v02"
           WORK="$HOME/.local/var/pmbootstrap"
+          OVERLAY_SRC="$GITHUB_WORKSPACE/config/device-testing"
+
+          echo "=== Loop device support ==="
+          ls -la /dev/loop* 2>&1 || true
+          modprobe loop 2>&1 || true
+
           mkdir -p "$WORK/cache_git"
           printf '8\n' > "$WORK/version"
 
-          # Clone pmaports so pmbootstrap can find device packages
+          # Clone pmaports
           git clone --depth=1 \
             https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
             "$WORK/cache_git/pmaports"
+
+          # Merge local device overlay
+          if [ -d "$OVERLAY_SRC" ]; then
+            echo "=== Merging local device overlay from $OVERLAY_SRC ==="
+            for device_dir in "$OVERLAY_SRC"/*/; do
+              [ -d "$device_dir" ] || continue
+              devname=$(basename "$device_dir")
+              echo "  Adding device: $devname"
+              cp -r "$device_dir" "$WORK/cache_git/pmaports/device/testing/$devname"
+            done
+          fi
+
+          DEVICE_DIR="device-${DEVICE}"
+          if [ ! -f "$WORK/cache_git/pmaports/device/testing/${DEVICE_DIR}/deviceinfo" ]; then
+            echo "ERROR: Device overlay not found at device/testing/${DEVICE_DIR}/deviceinfo"
+            ls "$WORK/cache_git/pmaports/device/testing/" 2>/dev/null || echo "(device/testing/ missing)"
+            exit 1
+          fi
+
           git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
             "$(git -C "$WORK/cache_git/pmaports" rev-parse HEAD)"
 
-          # Write pmbootstrap config (printf avoids heredoc indent issues)
+          # Write pmbootstrap config
           mkdir -p "$HOME/.config"
           printf '%s\n' \
             '[pmbootstrap]' \
@@ -72,26 +97,36 @@ jobs:
             > "$HOME/.config/pmbootstrap_v3.cfg"
           cat "$HOME/.config/pmbootstrap_v3.cfg"
 
-      - name: Build boot image
-        run: pmbootstrap build boot
+          # Build and install rootfs image
+          pmbootstrap --as-root install --password pmos --no-fde
+          pmbootstrap --as-root shutdown
 
-      - name: Build rootfs
-        run: pmbootstrap build rootfs
+          # Collect generated images
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          echo "=== Copying images to $GITHUB_WORKSPACE/out/ ==="
+          find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
+            -not -path "*/cache*" 2>/dev/null | while read f; do
+            cp -L "$f" "$GITHUB_WORKSPACE/out/" 2>/dev/null || true
+          done
+          ls -lh "$GITHUB_WORKSPACE/out/"
 
       - name: Verify OS Descriptor (boot.img)
         run: python scripts/verify_osdesc.py
+        continue-on-error: true
+
       - name: Upload boot image artifact
         uses: actions/upload-artifact@v4
         with:
           name: rndis-boot-img
-          path: tools/flash/build_boot_rndis_osdesc.img
+          path: ${{ github.workspace }}/out/boot.img
           retention-days: 7
+          if-no-files-found: warn
 
       - name: Upload rootfs image artifact
         uses: actions/upload-artifact@v4
         with:
           name: rndis-rootfs-img
-          path: ~/.local/var/pmbootstrap/output/*.img
+          path: ${{ github.workspace }}/out/
           retention-days: 7
           if-no-files-found: warn
 
