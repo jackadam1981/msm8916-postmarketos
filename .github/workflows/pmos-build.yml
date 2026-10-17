@@ -52,14 +52,23 @@ jobs:
       # ==================================================================
       - name: Build lk1st bootloader
         run: |
+          set -eu
           sudo apt-get update -qq
-          sudo apt-get install -y -qq build-essential gcc-arm-none-eabi 2>/dev/null || true
-          git clone https://github.com/msm8916-mainline/lk2nd.git /src/lk2nd
-          make -C /src/lk2nd TOOLCHAIN_PREFIX=arm-none-eabi- lk1st-msm8916
-          pip3 install cryptography --break-system-packages --no-cache-dir 2>/dev/null || true
-          python3 /src/qtestsign/qtestsign.py aboot /src/lk2nd/build-lk1st-msm8916/emmc_appsboot.mbn 2>/dev/null || true
+          sudo apt-get install -y -qq build-essential gcc-arm-none-eabi
+          # Use workspace dir instead of /src (runner has no write access to /src)
+          LK_DIR="$GITHUB_WORKSPACE/build/lk2nd"
+          QS_DIR="$GITHUB_WORKSPACE/build/qtestsign"
+          mkdir -p "$GITHUB_WORKSPACE/build"
+
+          git clone https://github.com/msm8916-mainline/lk2nd.git "$LK_DIR"
+          make -C "$LK_DIR" TOOLCHAIN_PREFIX=arm-none-eabi- lk1st-msm8916
+
+          git clone --depth=1 https://github.com/msm8916-mainline/qtestsign.git "$QS_DIR"
+          pip3 install cryptography --break-system-packages --no-cache-dir
+          python3 "$QS_DIR/qtestsign.py" aboot "$LK_DIR/build-lk1st-msm8916/emmc_appsboot.mbn"
+
           mkdir -p "$GITHUB_WORKSPACE/out"
-          cp -L /src/lk2nd/build-lk1st-msm8916/emmc_appsboot-test-signed.mbn "$GITHUB_WORKSPACE/out/lk1st-msm8916.mbn" 2>/dev/null || true
+          cp -L "$LK_DIR/build-lk1st-msm8916/emmc_appsboot-test-signed.mbn" "$GITHUB_WORKSPACE/out/lk1st-msm8916.mbn"
 
       # ==================================================================
       # 5. Build rootfs and images (ALWAYS)
