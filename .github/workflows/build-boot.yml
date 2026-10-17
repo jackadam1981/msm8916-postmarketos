@@ -56,16 +56,18 @@ jobs:
           make -C /build/kernel ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
           make -C /build/kernel -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz dtbs
 
-          # Build initramfs
+          # Build initramfs (printf keeps shebang at column 0; a heredoc
+          # inside a YAML block scalar would indent every line)
           mkdir -p /build/initramfs
-          cat > /build/initramfs/init << 'INITEOF'
-          #!/bin/busybox sh
-          mount -t proc none /proc
-          mount -t sysfs none /sys
-          echo "pmOS booting from initramfs..."
-          exec /sbin/init
-          INITEOF
+          printf '%s\n' \
+            '#!/bin/busybox sh' \
+            'mount -t proc none /proc' \
+            'mount -t sysfs none /sys' \
+            'echo "pmOS booting from initramfs..."' \
+            'exec /sbin/init' \
+            > /build/initramfs/init
           chmod +x /build/initramfs/init
+          head -1 /build/initramfs/init | cat -A
           cd /build/initramfs
           find . | cpio -H newc -o | gzip > /build/out/initramfs.gz
 
@@ -76,6 +78,20 @@ jobs:
 
           # Append DTB to kernel
           cat "$KERNEL" "$DTB" > /build/out/kernel-dtb.gz
+
+          # Install mkbootimg if not present (container may lack it)
+          if ! command -v mkbootimg >/dev/null 2>&1; then
+            if command -v apt-get >/dev/null 2>&1; then
+              apt-get update && apt-get install -y mkbootimg
+            elif command -v apk >/dev/null 2>&1; then
+              apk update && apk add --no-cache mkbootimg
+            elif command -v dnf >/dev/null 2>&1; then
+              dnf install -y mkbootimg
+            else
+              echo "Unsupported package manager - cannot install mkbootimg"
+              exit 1
+            fi
+          fi
 
           # mkbootimg (from AOSP, usually in PATH on pmos_build image)
           mkbootimg \

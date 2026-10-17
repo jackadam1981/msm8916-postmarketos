@@ -41,15 +41,18 @@ jobs:
           make -C /build/kernel -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz dtbs
 
           # ---------- Minimal initramfs for memory-boot validation ----------
+          # printf keeps the shebang at column 0; a heredoc inside a YAML
+          # block scalar would indent every line and break the init script
           mkdir -p /build/initramfs
-          cat > /build/initramfs/init << 'INITEOF'
-          #!/bin/busybox sh
-          # Print marker so we can see it on UART or via adbd (if you start it)
-          echo "pmOS booting from initramfs..."
-          # Keep the initramfs alive for a while so the message is observable
-          sleep 30
-          INITEOF
+          printf '%s\n' \
+            '#!/bin/busybox sh' \
+            '# Print marker so we can see it on UART or via adbd (if you start it)' \
+            'echo "pmOS booting from initramfs..."' \
+            '# Keep the initramfs alive for a while so the message is observable' \
+            'sleep 30' \
+            > /build/initramfs/init
           chmod +x /build/initramfs/init
+          head -1 /build/initramfs/init | cat -A
           cd /build/initramfs
           find . | cpio -H newc -o | gzip > /build/out/initramfs.gz
 
