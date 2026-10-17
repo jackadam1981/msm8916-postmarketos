@@ -145,10 +145,20 @@ jobs:
           mkdir -p "$OUT"
           
           # 收集 pmbootstrap 生成的镜像 (移除 vmlinuz)
-          find "$WORK/output" -type f \( -name "*.img" -o -name "boot.img" \) \
+          # 注意: 搜索整个 $WORK（排除 cache），不能只搜 $WORK/output，
+          # 否则 rootfs/boot.img 会漏掉，最终 zip 只剩 lk1st + 脚本（~117 KB）
+          find "$WORK" -type f \( -name "*.img" -o -name "boot.img" \) \
             -not -path "*/cache*" 2>/dev/null | while read f; do
             cp -L "$f" "$OUT/" 2>/dev/null || true
           done
+
+          IMG_COUNT=$(find "$OUT" -maxdepth 1 -name "*.img" | wc -l)
+          echo "=== Collected $IMG_COUNT image(s) ==="
+          if [ "$IMG_COUNT" -eq 0 ]; then
+            echo "ERROR: no .img collected - pmbootstrap install produced nothing?"
+            find "$WORK" -maxdepth 3 -type d 2>/dev/null | head -20
+            exit 1
+          fi
           
           # lk1st 已在 Step 4 中构建，直接复制
           if [ -f "$GITHUB_WORKSPACE/out/lk1st-msm8916.mbn" ]; then
