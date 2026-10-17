@@ -24,6 +24,8 @@ __pycache__/
 log.txt
 *.tmp
 *.log
+# 真机 bring-up 证据日志需要入库（覆盖上面的 *.log 规则）
+!docs/bringup/**/*.log
 *.img
 *.bin
 *.dtb

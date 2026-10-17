@@ -1,0 +1,20 @@
+﻿ping -c 2 -W 3 223.5.5.5 2>&1 | tail -3
+--- 223.5.5.5 ping statistics ---
+2 packets transmitted, 2 packets received, 0% packet loss
+round-trip min/avg/max = 33.242/88.530/143.819 ms
+410stick-ufi003-mb-v02:~$ free -h | head -3
+              total        used        free      shared  buff/cache   available
+Mem:         374.0M       85.3M      131.7M        1.2M      157.0M      277.8M
+Swap:        561.0M           0      561.0M
+410stick-ufi003-mb-v02:~$ df -h / | tail -1
+/dev/mmcblk0p15           3.1G      1.2G      1.7G  41% /
+410stick-ufi003-mb-v02:~$ systemctl --failed --no-pager --plain | head -8
+UNIT LOAD ACTIVE SUB DESCRIPTION
+
+0 loaded units listed.
+410stick-ufi003-mb-v02:~$ uname -a
+Linux 410stick-ufi003-mb-v02 6.12.1-msm8916 #7 SMP PREEMPT Thu Jul 16 11:36:59 UTC 2026 aarch64 Linux
+410stick-ufi003-mb-v02:~$ cat /etc/os-release | head -2
+PRETTY_NAME="postmarketOS edge"
+NAME="postmarketOS"
+410stick-ufi003-mb-v02:~$ 
