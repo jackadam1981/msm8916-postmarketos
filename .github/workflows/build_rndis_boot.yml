@@ -28,26 +28,55 @@ jobs:
       - name: Check PMOS version
         run: python scripts/check_version.py "${{ github.event.inputs.version }}"
 
-      - name: Build boot and rootfs from PMOS source
-        if: success()
+      - name: Install pmbootstrap
         run: |
-          set -e
-          echo "🔧 安装构建依赖..."
+          git clone --depth=1 https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git /tmp/pmbootstrap
+          sudo ln -sf /tmp/pmbootstrap/pmbootstrap.py /usr/local/bin/pmbootstrap
+          pmbootstrap --version
+
+      - name: Install build dependencies
+        run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            pmbootstrap git e2fsprogs kmod dosfstools
-          # Ensure loop devices are available
-          modprobe loop 2>&1 || echo "⚠️ loop module not available"
-          echo "🔧 初始化 pmbootstrap..."
-          printf "auto\ndefault\ndefault" | pmbootstrap init --answer-timeout 30
-          echo "🔧 添加设备支持 msm8916..."
-          pmbootstrap config --add-device msm8916
-          echo "🔧 编译 boot.img..."
-          pmbootstrap build boot
-          echo "✅ boot.img 构建完成"
-          echo "🔧 编译 rootfs.img..."
-          pmbootstrap build rootfs
-          echo "✅ rootfs.img 构建完成"
+            git e2fsprogs kmod dosfstools
+          modprobe loop 2>&1 || echo "loop module not available"
+
+      - name: Configure pmbootstrap
+        run: |
+          set -eu
+          DEVICE="msm8916"
+          WORK="$HOME/.local/var/pmbootstrap"
+          mkdir -p "$WORK/cache_git"
+          printf '8\n' > "$WORK/version"
+
+          # Clone pmaports so pmbootstrap can find device packages
+          git clone --depth=1 \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git \
+            "$WORK/cache_git/pmaports"
+          git -C "$WORK/cache_git/pmaports" update-ref refs/remotes/origin/main \
+            "$(git -C "$WORK/cache_git/pmaports" rev-parse HEAD)"
+
+          # Write pmbootstrap config (printf avoids heredoc indent issues)
+          mkdir -p "$HOME/.config"
+          printf '%s\n' \
+            '[pmbootstrap]' \
+            "work = $WORK" \
+            "device = $DEVICE" \
+            'ui = console' \
+            'user = pmos' \
+            'extra_space = 0' \
+            '' \
+            '[mirrors]' \
+            'alpine = https://dl-cdn.alpinelinux.org/alpine/' \
+            'pmaports = https://mirror.postmarketos.org/postmarketos/' \
+            > "$HOME/.config/pmbootstrap_v3.cfg"
+          cat "$HOME/.config/pmbootstrap_v3.cfg"
+
+      - name: Build boot image
+        run: pmbootstrap build boot
+
+      - name: Build rootfs
+        run: pmbootstrap build rootfs
 
       - name: Verify OS Descriptor (boot.img)
         run: python scripts/verify_osdesc.py
