@@ -23,7 +23,7 @@ description reviewable and keeps it in sync with kernel upgrades.
 
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8916-zhihe-ufi003-mb-v02.dts
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,148 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Zhihe UFI003_MB_V02 4G modem stick (MSM8916)
@@ -59,6 +59,13 @@ description reviewable and keeps it in sync with kernel upgrades.
 + *  - USB is forced to peripheral mode.  This is a dongle that is always
 + *    plugged into a host, so USB role switching only adds a way to end up in
 + *    host mode with no gadget registered.
++ *
++ *  - The USB PHY rails stay on the PMIC defaults: v1p8-supply -> L7 and
++ *    v3p3-supply -> L13.  That is what the hardware does - the vendor tree
++ *    wires HSUSB_1p8 / HSUSB_3p3 to 8916_l7 / 8916_l13.  Do not add
++ *    regulator-fixed stubs for them.  The hand-built DTB that shipped before
++ *    this file existed carried such stubs, but they were a leftover from an
++ *    older kernel and only made the rails look board-controlled.
 + *
 + *  - venus (video codec) stays disabled: it does not work on these sticks and
 + *    this device has no display anyway.

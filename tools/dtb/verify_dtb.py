@@ -98,6 +98,14 @@ def expect(cond: bool, msg: str) -> None:
         raise Failure(msg)
 
 
+def by_phandle(root: Node, value: int) -> Node:
+    for node in root.walk():
+        raw = node.props.get("phandle")
+        if raw and len(raw) == 4 and struct.unpack(">I", raw)[0] == value:
+            return node
+    raise Failure(f"no node has phandle {value:#x}")
+
+
 def check(root: Node, expect_mib: int | None) -> int:
     n = 0
 
@@ -138,6 +146,20 @@ def check(root: Node, expect_mib: int | None) -> int:
     stale = [node.path for node in root.walk() if "extcon" in node.props]
     expect(not stale, f"extcon is still present on: {stale}")
     n += 1
+
+    # The PHY rails come from the PMIC, not from board-level fixed
+    # regulators.  The vendor tree says the same: HSUSB_1p8-supply points at
+    # 8916_l7 and HSUSB_3p3-supply at 8916_l13.  The old hand-built DTB used
+    # regulator-fixed stubs here, which is a leftover from an older kernel and
+    # hides whether the rails are actually controlled.
+    phy = find(root, USB_PHY)
+    for prop, rail in (("v1p8-supply", "l7"), ("v3p3-supply", "l13")):
+        cells_ = cells(phy, prop)
+        target = by_phandle(root, cells_[0])
+        expect(target.path.endswith("regulators/" + rail),
+               f"{phy.path}: {prop} points at {target.path}, expected the "
+               f"PMIC {rail.upper()} rail (regulators/{rail})")
+        n += 1
 
     # ---- venus off ------------------------------------------------------
     venus = find(root, VENUS)
