@@ -1,0 +1,189 @@
+# persist 挂载 + MAC 序列号派生 —— 原始证据
+# 设备: 410stick-ufi003-mb-v02 (UFI003-02, MSM8916)
+# 内核: 6.12.1-msm8916, postmarketOS edge
+# 采集: 2026-10-18 21:26-21:32 (设备本地时间), 经 LAN SSH (192.168.100.1)
+
+================================================================
+1. 改之前的状态
+================================================================
+
+$ cat /etc/fstab
+# <file system> <mount point> <type> <options> <dump> <pass>
+UUID=3d35c1c5-f899-4a5e-bc6a-f182474361cc / ext4 defaults 0 0
+
+$ findmnt /persist
+(empty)  # 根本没挂载
+
+$ blkid | grep -i persist
+/dev/mmcblk0p11: UUID="57f8f4bc-abf4-655f-bf67-946fc0f9f25b" BLOCK_SIZE="4096"
+                  TYPE="ext4" PARTLABEL="persist" PARTUUID="e98d2f84-..."
+
+$ cat /sys/firmware/devicetree/base/serial-number
+26e041bc
+
+$ cat /sys/class/net/wlan0/address
+02:00:26:e0:41:bc      # = 02:00 + serial, 内核派生
+
+$ cat /sys/class/net/usb0/address
+02:00:26:e0:41:be      # = 02:00 + serial + 2, 原脚本硬编码
+
+$ cat /proc/device-tree/model
+UFI003_MB_V02 4G Modem Stick
+
+
+================================================================
+2. persist 内容（只读挂载后）
+================================================================
+
+$ sudo mount -o ro /dev/mmcblk0p11 /persist
+$ sudo ls -la /persist/
+total 52
+drwxrwx--x    4 1000     1000          4096 Jan  1  1970 .
+-rw-------    1 1002     1002             9 Jan  1  1970 .bt_nv.bin
+-rw-r--r--    1 1010     1010         29816 Nov  1  2022 WCNSS_qcom_wlan_nv.bin
+drwxr-xr-x    2 root     root          4096 Nov  1  2022 aost
+drwx------    2 root     root          4096 Jan  1  1970 lost+found
+
+$ md5sum /persist/WCNSS_qcom_wlan_nv.bin
+4c3bfa34...   (29816 bytes, 时间戳 2022-11-01 = 原厂固件构建日)
+
+# 在 nv.bin / modemst1 / modemst2 / fsg 中搜索清单记录的原厂 MAC
+# 5c:a0:00:73:6d:11 -> 搜 '5ca0' 和 '736d11'
+$ grep -c ... /persist/WCNSS_qcom_wlan_nv.bin   -> 0
+$ modemst1 (2MB)  -> not found
+$ modemst2 (2MB)  -> not found
+$ fsg      (2MB)  -> not found
+
+# 结论: 这族 persist 里没有个体化 MAC。
+#        nv.bin 是通用校准模板（无 5ca0 OUI），.bt_nv.bin 的 BD_ADDR
+#        e4:a8:10:00:00:08 尾部像默认值。
+
+
+================================================================
+3. MAC 派生单测（本地, 三台清单机器的序列号）
+================================================================
+
+serial     -> dev_addr             host_addr
+26e041bc   -> 02:00:26:e0:41:be    02:00:26:e0:41:bf
+1db15d2a   -> 02:00:1d:b1:5d:2c    02:00:1d:b1:5d:2d
+216ffcc1   -> 02:00:21:6f:fc:c3    02:00:21:6f:fc:c4
+fffffffe   -> 02:00:00:00:00:00    02:00:00:00:00:01   (进位正确)
+00000001   -> 02:00:00:00:00:03    02:00:00:00:00:04
+
+# 7 位序列号 1db15d2 左补零到 01db15d2 后:
+01db15d2   -> 02:00:01:db:15:d4    02:00:01:db:15:d5
+
+
+================================================================
+4. 设备侧安装后
+================================================================
+
+$ usb-lan.sh mac
+[usb-lan] MAC from serial 26e041bc: dev=02:00:26:e0:41:be host=02:00:26:e0:41:bf
+serial   : 26e041bc
+dev_addr : 02:00:26:e0:41:be
+host_addr: 02:00:26:e0:41:bf
+
+$ usb-lan.sh status
+--- gadget ---
+UDC      : ci_hdrc.0
+idVendor : 0x05c6
+idProduct: 0x90b4
+class    : 00
+subclass : 00
+protocol : 00
+os_desc  : use=1 vendor=0xcd sign=MSFT100
+compat_id: RNDIS
+subcomp  : 5162001
+dev_addr : 02:00:26:e0:41:be
+host_addr: 02:00:26:e0:41:bf
+--- identity ---
+serial   : 26e041bc
+override : none (derived from serial)
+--- net ---
+usb0             UP             192.168.100.1/24 172.16.42.1/16
+--- dhcp ---
+dnsmasq pid 5405 running
+
+
+================================================================
+5. 服务重启（走完整 systemd 路径）
+================================================================
+
+$ systemd-run --on-active=3 --unit=usb-lan-restart --collect \
+      systemctl restart usb-lan.service
+
+# 重启后:
+$ systemctl is-active usb-lan.service
+active                                  # 之前是 inactive（手动 up 的残留状态）
+
+$ findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS /persist
+/persist /dev/mmcblk0p11 ext4 ro,relatime
+
+$ systemctl show persist.mount -p FragmentPath -p WantedBy
+FragmentPath=/usr/lib/systemd/system/persist.mount
+WantedBy=local-fs.target
+
+$ systemctl is-enabled persist.mount
+enabled
+
+$ systemctl list-dependencies local-fs.target | grep persist
+● ├─persist.mount
+
+$ ls -l /dev/disk/by-partlabel/persist
+lrwxrwxrwx ... /dev/disk/by-partlabel/persist -> ../../mmcblk0p11
+
+$ ping -c 2 -W 3 223.5.5.5
+2 packets transmitted, 2 received, 0% packet loss
+round-trip min/avg/max = 33.665/37.636/41.607 ms
+
+
+================================================================
+6. Windows 侧（重启后）
+================================================================
+
+=== 网卡 ===
+Name     : 以太网 3
+Desc     : Remote NDIS Compatible Device #2
+Status   : Up
+LinkSpeed: 426.0 Mbps
+Mac      : 02-00-26-E0-41-BF        <- 与 host_addr 一致
+
+=== 地址 ===
+192.168.100.95/24   PrefixOrigin=Dhcp  SuffixOrigin=Dhcp
+gateway: 192.168.100.1 (RouteMetric 0)
+
+=== 连通性 ===
+ping 192.168.100.1   0 / 0 / 0 ms
+ping 223.5.5.5       33 / 34 / 32 ms
+Resolve-DnsName www.baidu.com -> 220.181.111.1, 220.181.111.232
+Invoke-WebRequest http://www.baidu.com -> 200
+TCP 192.168.100.1:22 -> True
+
+=== 设备侧租约 ===
+1792402143 02:00:26:e0:41:bf 192.168.100.95 JACK-ROG 01:02:00:26:e0:41:bf
+
+# 网卡名 以太网 2 -> 以太网 3 是改 USB serialnumber 的一次性副作用:
+# 之前 strings/0x409/serialnumber = "ufi003-pmos"（所有机器相同）
+# 现在 = "ufi003-26e041bc"（每台不同）
+
+
+================================================================
+7. 踩到的坑（记录以免重犯）
+================================================================
+
+a) status 误报 "dnsmasq not running"
+   原实现用 kill -0 <pid> 判断。dnsmasq 降权到 dnsmasq 用户后，普通用户
+   kill -0 返回 EPERM，健康进程被报成死的。改用 /proc/<pid> 存在性判断。
+
+b) busybox `install -Dm644` 报 "hostname contains invalid characters"
+   /usr/bin/install 是 BusyBox v1.38.0 的 applet，加 -D 后整条 ssh 会话异常退出。
+   改用 cp + chmod。
+
+c) /usr/lib/systemd/system 下的 unit 不会自动生效
+   必须 systemctl enable 才会在 /etc/systemd/system/local-fs.target.wants/
+   下建符号链接。之前 is-enabled=disabled、local-fs.target 依赖里也没有它。
+
+d) fstab 生成的 mount unit 会覆盖 /usr/lib 下的同名 unit
+   所以装了 unit 之后必须把 fstab 里那行删掉，否则改的是 fstab 那份。
+   本机用 /etc/fstab.bak-20261018-212649 还原。

@@ -1,0 +1,29 @@
+[Unit]
+Description=Qualcomm NV / calibration data (persist, read-only)
+Documentation=man:systemd.mount(5)
+# Ship this as a unit rather than an /etc/fstab line: fstab is generated at
+# install time and is not carried by the device package, so a freshly flashed
+# image would lose the mount. A unit under /usr/lib/systemd/system does travel
+# with the package.
+#
+# Keyed on PARTLABEL, not UUID: reflashing the persist filesystem changes its
+# UUID but not the GPT partition label, and losing this mount after a reflash
+# would silently drop WiFi calibration / BT address.
+#
+# ConditionPathExists gives us the "nofail" behaviour -- a unit whose
+# condition fails is skipped, not failed, so boot is never blocked on a device
+# that has no persist partition.
+Before=local-fs.target
+After=systemd-remount-fs.service
+ConditionPathExists=/dev/disk/by-partlabel/persist
+
+[Mount]
+What=/dev/disk/by-partlabel/persist
+Where=/persist
+Type=ext4
+# Read-only on purpose: nothing in postmarketOS writes here, and this is the
+# last surviving copy of the factory calibration on this unit.
+Options=ro,relatime
+
+[Install]
+WantedBy=local-fs.target

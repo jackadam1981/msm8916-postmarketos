@@ -1,0 +1,81 @@
+# wlan0 / wcn36xx 排查原始串口记录
+# 采集时间：2026-10-18
+# 链路：CH340 (COM5) @ 115200 8N1 -> pmOS serial getty
+# 说明：下方为串口原文，已剥 ANSI 转义；`$ ` 后为回显的命令
+
+410stick-ufi003-mb-v02:~$ whoami; id
+pmos
+uid=10000(pmos) gid=10000(pmos) groups=10(wheel),18(audio),27(video),28(netdev),102(plugdev),10000(pmos)
+
+410stick-ufi003-mb-v02:~$ nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev | cat
+wwan0qmi0:gsm:connected:wwan0qmi0
+lo:loopback:connected (externally):lo
+wlan0:wifi:disconnected:
+usb0:ethernet:unmanaged:
+
+410stick-ufi003-mb-v02:~$ ip -4 addr show wlan0 | cat
+(无输出 —— 未关联，无 IPv4 地址)
+
+410stick-ufi003-mb-v02:~$ cat /sys/class/net/wlan0/operstate; cat /sys/class/net/wlan0/address
+down
+5e:5e:a1:ce:38:46
+
+410stick-ufi003-mb-v02:~$ nmcli -t -f SSID,SIGNAL dev wifi list | wc -l
+19
+
+410stick-ufi003-mb-v02:~$ journalctl -k --no-pager 2>&1 | grep -iE 'wcn36|wcnss' | tail -8
+Aug 17 23:43:03 410stick-ufi003-mb-v02 kernel: OF: reserved mem: 0x000000008bd00000..0x000000008c2fffff (6144 KiB) nomap non-reusable wcnss
+Oct 17 21:34:13 410stick-ufi003-mb-v02 kernel: remoteproc remoteproc0: Booting fw image wcnss.mdt, size 7260
+Oct 17 21:34:14 410stick-ufi003-mb-v02 kernel: qcom_wcnss_ctrl remoteproc0:smd-edge.WCNSS_CTRL.-1.-1: WCNSS Version 1.5 1.2
+Oct 17 21:34:14 410stick-ufi003-mb-v02 kernel: wcn36xx: mac address: 02:00:26:e0:0:41:bc
+Oct 17 21:34:15 410stick-ufi003-mb-v02 kernel: qcom-wcnss-pil a204000.remoteproc: unexpected response to sysmon event
+Oct 17 21:34:16 410stick-ufi003-mb-v02 kernel: wcn36xx: firmware WLAN version 'WCN V2.0 RadioPhy vUnknown with 19.2MHz XO' and CRM version '00110'
+Oct 17 21:34:16 410stick-ufi003-mb-v02 kernel: wcn36xx: firmware API 1.5.1.2, 411 stations, 2 bssids
+
+410stick-ufi003-mb-v02:~$ iw dev wlan0 link | cat
+-ash: iw: not found          <-- 未安装 iw，改用 nmcli
+
+---- sudo 认证 ----
+# 直接交互输密码会失败（tty 回显打乱时序）：
+#   sudo: interactive authentication is required
+#   sudo: Authentication failed, try again.
+# 从 stdin 喂密码则正常：
+410stick-ufi003-mb-v02:~$ echo pmos | sudo -S -p '' id 2>&1 | tail -2
+uid=0(root) gid=0(root) groups=0(root),0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),10(wheel),11(floppy),20(dialout),26(tape),27(video)
+
+---- NetworkManager 已保存连接 ----
+410stick-ufi003-mb-v02:~$ nmcli -t -f NAME,TYPE,AUTOCONNECT con show | cat
+wwan0qmi0:gsm:yes
+lo:loopback:yes
+# 关键证据：从来没有 WiFi 连接配置
+
+---- rescan ----
+410stick-ufi003-mb-v02:~$ nmcli dev wifi rescan 2>&1 | tail -2
+Error: org.freedesktop.NetworkManager.wifi.scan request failed: not authorized.
+# polkit 不放行串口会话；root 下正常：
+
+410stick-ufi003-mb-v02:~$ echo pmos | sudo -S -p '' nmcli dev wifi rescan 2>&1 | tail -1
+(无输出 = 成功)
+
+410stick-ufi003-mb-v02:~$ nmcli -t -f SSID,SIGNAL,SECURITY dev wifi list | wc -l
+18
+
+410stick-ufi003-mb-v02:~$ nmcli -f SSID,SIGNAL,SECURITY dev wifi list | head -6 | cat
+SSID           SIGNAL  SECURITY
+ChinaNet-2feQ  94      WPA1 WPA2
+Kumquat_2.4G   75      WPA2 WPA3
+qiuqiu         70      WPA1 WPA2
+LIN-1          54      WPA1 WPA2
+CU_kwXd        54      WPA1 WPA2
+
+---- 接口详情 ----
+410stick-ufi003-mb-v02:~$ echo pmos | sudo -S -p '' ip link show wlan0 2>&1 | head -2
+3: wlan0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN mode DORMANT group default qlen 1000
+    link/ether 5e:5e:a1:ce:38:46 brd ff:ff:ff:ff:ff:ff permaddr 02:00:26:e0:41:bc
+# permaddr 与内核日志中 wcn36xx 的 MAC 一致；link/ether 是 NM 的 MAC 随机化
+
+# 结论：
+#   wcnss.mdt 固件 boot 成功 -> wcn36xx 加载固件 API 1.5.1.2
+#   rfkill 未屏蔽 -> 扫描返回 18 个真实 AP
+#   NM 中无任何 wifi 连接 -> wlan0 处于标准未关联态 (NO-CARRIER/DOWN/DORMANT)
+#   => WiFi 无功能缺口，仅缺 SSID/密码配置

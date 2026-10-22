@@ -1,0 +1,211 @@
+name: Verify device tree (dts -> dtb)
+
+# The device tree is the only part of the boot chain we author ourselves, and
+# until now it had never been compiled - it was checked by eye against the
+# vendor tree and shipped on faith.  `dtc` is not installed on the developer's
+# Windows box, so this job is the compiler.
+#
+# It is deliberately small: sparse-checkout just the qcom dts directory and
+# the dt-bindings headers, apply our patch, run cpp + dtc exactly the way the
+# kernel's cmd_dtc does, then assert on the resulting binary.  A few minutes,
+# versus the 300-minute full pmos-build.
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_tag:
+        description: 'Kernel tag to build against (empty = read pkgver from APKBUILD)'
+        required: false
+        default: ''
+  push:
+    paths:
+      - 'config/kernel-testing/**'
+      - 'tools/dtb/**'
+      - '.github/workflows/dt-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  dtc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      KPKG: config/kernel-testing/linux-postmarketos-qcom-msm8916
+      DTS_NAME: msm8916-zhihe-ufi003-mb-v02
+      OUT: ${{ github.workspace }}/out
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install dtc
+        run: |
+          sudo apt-get update -qq
+          # device-tree-compiler brings dtc, fdtget and fdtdump.  cpp comes
+          # with the gcc that ubuntu-latest already has.
+          sudo apt-get install -y -qq device-tree-compiler
+          dtc --version
+          cpp --version | head -1
+
+      # ------------------------------------------------------------------
+      # Resolve the kernel version from the package we actually build, so a
+      # kernel bump in APKBUILD is picked up without touching this file.
+      # ------------------------------------------------------------------
+      - name: Resolve kernel tag
+        id: tag
+        run: |
+          set -eu
+          if [ -n "${{ github.event.inputs.kernel_tag }}" ]; then
+            TAG="${{ github.event.inputs.kernel_tag }}"
+            echo "using tag from workflow input"
+          else
+            PKGVER=$(sed -n 's/^pkgver=//p' "$KPKG/APKBUILD" | head -1)
+            [ -n "$PKGVER" ] || { echo "::error::cannot read pkgver from $KPKG/APKBUILD"; exit 1; }
+            TAG="v${PKGVER}-msm8916"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "=== kernel tag: $TAG ==="
+
+      # ------------------------------------------------------------------
+      # Sparse clone.  A full kernel checkout is ~2 GB; we need about 6 MB of
+      # it.  blob:none + sparse-checkout fetches only the paths we list.
+      # ------------------------------------------------------------------
+      - name: Fetch kernel sources (sparse)
+        run: |
+          set -eu
+          TAG="${{ steps.tag.outputs.tag }}"
+          K=/tmp/linux
+
+          git clone --depth=1 --branch "$TAG" \
+            --filter=blob:none --sparse \
+            https://github.com/msm8916-mainline/linux.git "$K"
+
+          git -C "$K" sparse-checkout set \
+            arch/arm64/boot/dts include/dt-bindings
+
+          echo "=== $(git -C "$K" rev-parse HEAD) ($TAG) ==="
+          ls "$K/arch/arm64/boot/dts/qcom" | grep -c . | xargs echo "qcom dts files:"
+
+      # ------------------------------------------------------------------
+      # Apply the same patch the APKBUILD applies.  If this fails the shipped
+      # kernel package would fail too, so treat it as a hard error.
+      # ------------------------------------------------------------------
+      - name: Apply device tree patch
+        run: |
+          set -eu
+          K=/tmp/linux
+          PATCH="$KPKG/0002-arm64-dts-qcom-msm8916-add-zhihe-ufi003-mb-v02.patch"
+          [ -f "$PATCH" ] || { echo "::error::patch not found: $PATCH"; exit 1; }
+          # Absolute, because the fallback below runs inside a subshell that
+          # has already changed directory.
+          PATCH_ABS="$GITHUB_WORKSPACE/$PATCH"
+
+          if git -C "$K" apply -v "$PATCH"; then
+            echo "=== patch applied with git apply ==="
+          else
+            echo "::warning::git apply failed, retrying with patch -p1 -F3"
+            ( cd "$K" && patch -p1 -F3 < "$PATCH_ABS" ) || {
+              echo "::error::patch does not apply to this kernel tag"
+              exit 1
+            }
+          fi
+
+          # The dts existing on disk is not enough - it has to be listed in
+          # the Makefile, otherwise no DTB is ever produced for it.
+          grep -q "$DTS_NAME" "$K/arch/arm64/boot/dts/qcom/Makefile" \
+            || { echo "::error::$DTS_NAME is not in the qcom Makefile"; exit 1; }
+          echo "=== $DTS_NAME listed in Makefile ==="
+
+      # ------------------------------------------------------------------
+      # Compile.  These are the same two commands the kernel runs for
+      # cmd_dtc: cpp with the kernel's flags, then dtc.
+      # ------------------------------------------------------------------
+      - name: Compile dts to dtb
+        run: |
+          set -eu
+          K=/tmp/linux
+          mkdir -p "$OUT"
+          SRC="$K/arch/arm64/boot/dts/qcom/$DTS_NAME.dts"
+
+          cpp -nostdinc -undef -D__DTS__ -x assembler-with-cpp \
+            -I "$K/include" \
+            -I "$K/arch/arm64/boot/dts" \
+            -I "$K/arch/arm64/boot/dts/qcom" \
+            -o "$OUT/$DTS_NAME.pre.dts" "$SRC"
+
+          echo "=== preprocessed: $(wc -l < "$OUT/$DTS_NAME.pre.dts") lines ==="
+
+          # Warnings are reported but not fatal: the kernel builds these same
+          # files with a handful of -Wno flags, and a rebase can introduce new
+          # ones that are not our problem.
+          dtc -I dts -O dtb -o "$OUT/$DTS_NAME.dtb" "$OUT/$DTS_NAME.pre.dts"
+
+          ls -l "$OUT/$DTS_NAME.dtb"
+          echo "=== compiled: $(stat -c%s "$OUT/$DTS_NAME.dtb") bytes ==="
+
+      # ------------------------------------------------------------------
+      # Assert on the binary, not the source.  dtc happily compiles a
+      # /delete-property/ that matched nothing.
+      # ------------------------------------------------------------------
+      - name: Verify board-specific values
+        run: |
+          set -eu
+          python3 tools/dtb/verify_dtb.py "$OUT/$DTS_NAME.dtb" --expect-mib 512
+
+      # ------------------------------------------------------------------
+      # Round-trip through our own decompiler.  This is a regression test for
+      # tools/dtb/dtb2dts.py + dts2dtb.py against a dtc-produced blob: if dtc
+      # changes how it packs strings, the tools break here rather than during
+      # an investigation.
+      # ------------------------------------------------------------------
+      - name: Round-trip through dtb2dts / dts2dtb
+        run: |
+          set -eu
+          python3 tools/dtb/dtb2dts.py "$OUT/$DTS_NAME.dtb" -o "$OUT/$DTS_NAME.decompiled.dts"
+          python3 tools/dtb/dts2dtb.py "$OUT/$DTS_NAME.decompiled.dts" \
+            --verify "$OUT/$DTS_NAME.dtb" \
+            -o "$OUT/$DTS_NAME.roundtrip.dtb"
+
+      # ------------------------------------------------------------------
+      # Informational: how far is the freshly built tree from the vendor one?
+      # Never fails - the two are not supposed to be identical.
+      # ------------------------------------------------------------------
+      - name: Compare against the vendor tree
+        continue-on-error: true
+        run: |
+          set -eu
+          VENDOR=docs/bringup/ufi003-mb-v02/vendor-dtb-board8-subtype0x100.dtb
+          [ -f "$VENDOR" ] || { echo "vendor dtb not archived, skipping"; exit 0; }
+          python3 tools/dtb/dtb_audit.py "$VENDOR" "$OUT/$DTS_NAME.dtb" || true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Device tree build"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| kernel tag | \`${{ steps.tag.outputs.tag }}\` |"
+            if [ -f "$OUT/$DTS_NAME.dtb" ]; then
+              echo "| dtb size | $(stat -c%s "$OUT/$DTS_NAME.dtb") bytes |"
+              echo "| dtb sha256 | \`$(sha256sum "$OUT/$DTS_NAME.dtb" | cut -d' ' -f1)\` |"
+            else
+              echo "| dtb | **not produced** |"
+            fi
+            echo
+            echo "Download the dtb from the artifacts of this run."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload dtb
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.DTS_NAME }}-dtb
+          path: |
+            out/${{ env.DTS_NAME }}.dtb
+            out/${{ env.DTS_NAME }}.decompiled.dts
+            out/${{ env.DTS_NAME }}.pre.dts
+          if-no-files-found: error
+          retention-days: 30

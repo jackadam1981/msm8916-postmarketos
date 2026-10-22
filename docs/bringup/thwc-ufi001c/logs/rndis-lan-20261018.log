@@ -1,0 +1,179 @@
+# RNDIS LAN bring-up -- raw evidence, 2026-10-18
+# Device: 410stick-ufi003-mb-v02 / MSM8916 / kernel 6.12.1-msm8916
+# Transport: UART COM5 @ 115200 8N1 (CH340), plus Windows-side queries.
+
+## A. BEFORE -- broken gadget inherited from the pmOS initramfs
+# Windows saw the device as CDC-ECM with no driver.
+#
+# Get-PnpDevice / Get-PnpDeviceProperty:
+#   Status          : Error
+#   Class           : RNDIS
+#   FriendlyName    : (empty)
+#   InstanceId      : USB\VID_05C6&PID_90B4&MI_00\7&12416D2&0&0000
+#   ProblemCode     : 28            <- no driver installed
+#   HardwareIds     : USB\VID_05C6&PID_90B4&REV_0612&MI_00
+#                     USB\VID_05C6&PID_90B4&MI_00
+#   CompatibleIds   : USB\COMPAT_VID_05c6&Class_02&SubClass_06&Prot_00
+#                     USB\Class_02&SubClass_06&Prot_00
+#                     USB\Class_02
+#   Parent service  : usbccgp
+#
+# Device side:
+#   /sys/kernel/config/usb_gadget/g1/functions/rndis.usb0/class    -> 02
+#   /sys/kernel/config/usb_gadget/g1/functions/rndis.usb0/subclass -> 06
+#   /sys/kernel/config/usb_gadget/g1/functions/rndis.usb0/protocol -> 00
+#   os_desc use=0 vendor=0x01 sign=MSFT100
+#   compat_id: (empty)
+#   usb0: 172.16.42.1/16
+#   dnsmasq: not running
+
+## B. APPLY -- rebuild gadget with RNDIS triple + Microsoft OS descriptors
+# sh -x /usr/local/bin/usb-lan.sh up   (abridged)
++ GADGET=/sys/kernel/config/usb_gadget/g1
++ UDC_NAME=ci_hdrc.0
++ do_up
++ gadget_up
++ gadget_down
++ echo
++ rm -f /sys/kernel/config/usb_gadget/g1/configs/c.1/rndis.usb0
++ rm -f /sys/kernel/config/usb_gadget/g1/os_desc/c.1
++ rmdir /sys/kernel/config/usb_gadget/g1/configs/c.1/strings/0x409
++ rmdir /sys/kernel/config/usb_gadget/g1/configs/c.1
++ rmdir /sys/kernel/config/usb_gadget/g1/functions/rndis.usb0
++ rmdir /sys/kernel/config/usb_gadget/g1/strings/0x409
++ rmdir /sys/kernel/config/usb_gadget/g1
++ mkdir -p /sys/kernel/config/usb_gadget/g1
++ cd /sys/kernel/config/usb_gadget/g1
++ echo 0x05c6            (idVendor)
++ echo 0x90b4            (idProduct)
++ echo 0x0200            (bcdUSB)
++ echo 0x0100            (bcdDevice)
++ echo 0xEF              (bDeviceClass)
++ echo 0x02              (bDeviceSubClass)
++ echo 0x01              (bDeviceProtocol)
++ mkdir -p strings/0x409
++ echo 410stick
++ echo 'UFI003-02 LTE dongle'
++ echo ufi003-pmos
++ mkdir -p configs/c.1/strings/0x409
++ echo RNDIS
++ echo 500
++ echo 0x80
++ mkdir -p functions/rndis.usb0
++ echo 0xE0              (class)
++ echo 0x01              (subclass)
++ echo 0x03              (protocol)
++ echo 02:00:26:e0:41:be (dev_addr)
++ echo 02:00:26:e0:41:bf (host_addr)
++ mkdir -p functions/rndis.usb0/os_desc/interface.rndis
++ echo RNDIS             (compatible_id)
++ echo 5162001           (sub_compatible_id)
++ mkdir -p os_desc
++ echo 1                 (os_desc/use)
++ echo 0xcd              (b_vendor_code)
++ echo MSFT100           (qw_sign)
++ ln -s functions/rndis.usb0 configs/c.1/
++ ln -s configs/c.1 os_desc/
++ echo ci_hdrc.0
+[51816.177165] configfs-gadget.g1 gadget.0: HOST MAC 02:00:26:e0:41:bf
+[51816.177220] configfs-gadget.g1 gadget.0: MAC 02:00:26:e0:41:be
++ log 'gadget bound to ci_hdrc.0 (RNDIS E0/01/03 + MSFT os_desc)'
+[usb-lan] gadget bound to ci_hdrc.0 (RNDIS E0/01/03 + MSFT os_desc)
++ net_up
++ nmcli dev set usb0 managed no
++ ip link set usb0 up
++ ip addr flush dev usb0
++ ip addr add 192.168.100.1/24 dev usb0
++ ip addr add 172.16.42.1/16 dev usb0
++ echo 1
+[usb-lan] usb0 = 192.168.100.1/24 (+ 172.16.42.1/16 fallback)
++ dhcp_up
++ dnsmasq '--conf-file=/etc/usb-lan/dnsmasq.conf' '--pid-file=/run/usb-lan-dnsmasq.pid'
+[usb-lan] dnsmasq DHCP up on usb0 (192.168.100.10-100)
++ nat_up
++ nft add rule ip nat postrouting oifname 'wwan*' ip saddr 192.168.100.0/24 masquerade
+[usb-lan] NAT: 192.168.100.0/24 -> wwan* masquerade
+
+## C. AFTER -- device side status
+--- gadget ---
+UDC      : ci_hdrc.0
+idVendor : 0x05c6
+idProduct: 0x90b4
+class    : 00          <- zeroed by the kernel once os_desc is in use; expected
+subclass : 00
+protocol : 00
+os_desc  : use=1 vendor=0xcd sign=MSFT100
+compat_id: RNDIS
+subcomp  : 5162001
+--- net ---
+usb0             UP             192.168.100.1/24 172.16.42.1/16
+--- dhcp ---
+dnsmasq pid 3539 running
+
+--- nat ---
+table ip nat {
+        chain postrouting {
+                type nat hook postrouting priority srcnat; policy accept;
+                oifname "wwan*" ip saddr 192.168.4.0/24 masquerade
+                oifname "wwan*" ip saddr 192.168.100.0/24 masquerade
+        }
+}
+
+--- loopback ping to the LAN address ---
+--- 192.168.100.1 ping statistics ---
+2 packets transmitted, 2 packets received, 0% packet loss
+round-trip min/avg/max = 0.169/0.190/0.211 ms
+
+--- service ---
+systemctl enable usb-lan.service  -> Created symlink
+systemctl is-enabled usb-lan.service -> enabled
+
+## D. AFTER -- Windows side
+=== pnputil /scan-devices ===
+Status  Class   FriendlyName                  InstanceId
+OK      USB     USB Composite Device          USB\VID_05C6&PID_90B4\UFI003-PMOS
+OK      Net     Remote NDIS Compatible Device USB\VID_05C6&PID_90B4&MI_00\7&12416D2&0&0000
+
+=== Get-NetAdapter ===
+Name                 : 以太网 2
+InterfaceDescription : Remote NDIS Compatible Device
+Status               : Up
+MacAddress           : 02-00-26-E0-41-BF
+LinkSpeed            : 426.0 Mbps
+
+=== Get-NetIPAddress ===
+IPAddress      PrefixLength PrefixOrigin SuffixOrigin
+192.168.100.95           24         Dhcp         Dhcp
+
+=== default route ===
+ifIndex InterfaceAlias NextHop       RouteMetric ifMetric
+     49 以太网 2       192.168.100.1           0       25
+
+=== Test-Connection 192.168.100.1 ===
+Address       ResponseTime StatusCode
+192.168.100.1            0          0
+192.168.100.1            0          0
+192.168.100.1            0          0
+
+=== Test-NetConnection 192.168.100.1:22 ===
+TcpTestSucceeded: True
+
+=== SSH banner ===
+SSH-2.0-OpenSSH_10.4
+
+=== internet through the dongle ===
+Test-Connection 223.5.5.5: 53 / 45 / 33 ms
+Resolve-DnsName www.baidu.com: 220.181.111.232
+Invoke-WebRequest http://www.baidu.com: 200
+
+=== SSH login over LAN (from Windows) ===
+$ ssh -i ~/.ssh/ufi003_ed25519 pmos@192.168.100.1 "..."
+Warning: Permanently added '192.168.100.1' (ED25519) to the list of known hosts.
+SSH_AUTH_OK
+410stick-ufi003-mb-v02
+pmos
+6.12.1-msm8916
+usb0             UP             192.168.100.1/24 172.16.42.1/16
+--- 4g ---
+wwan0            UNKNOWN        10.150.104.12/29
+exit: 0

@@ -35,6 +35,10 @@ echo   Loader   : %LOADER%
 echo   boot.img : %BOOT%
 echo   rootfs   : %ROOTFS%
 echo ============================================================
+echo   NOTE: This script assumes the NEW GPT is already in place.
+echo         If you are flashing a brand-new device, use
+echo         flash_edl_original.bat instead (it repartitions).
+echo ============================================================
 echo.
 
 rem ---- pre-checks ----

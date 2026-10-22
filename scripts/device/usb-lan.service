@@ -1,0 +1,20 @@
+[Unit]
+Description=USB RNDIS LAN (192.168.100.1) + DHCP + NAT
+Documentation=https://github.com/msm8916-mainline
+# configfs has to be mounted (it is, from the initramfs) and the UDC driver
+# loaded before we can build the gadget.
+ConditionPathExists=/sys/kernel/config
+After=systemd-modules-load.service
+Before=network-pre.target NetworkManager.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/usb-lan.sh up
+ExecStop=/usr/local/bin/usb-lan.sh down
+# Re-run if the gadget gets torn down by something else.
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

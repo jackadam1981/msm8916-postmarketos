@@ -31,3 +31,5 @@ log.txt
 *.dtb
 *.dtbo
 *.dts.tmp
+# 原厂固件里提取的 DTB 是证据文件，不是编译产物，必须入库
+!docs/bringup/**/vendor-*.dtb

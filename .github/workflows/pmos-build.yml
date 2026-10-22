@@ -15,7 +15,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # Was 120. The kernel is now compiled from source (device tree overlay),
+    # which alone takes 20-40 minutes on a runner.
+    timeout-minutes: 300
     permissions:
       contents: write
       packages: read
@@ -60,15 +62,34 @@ jobs:
           QS_DIR="$GITHUB_WORKSPACE/build/qtestsign"
           mkdir -p "$GITHUB_WORKSPACE/build"
 
+          # Track upstream main on purpose - we want the newest lk1st, not a
+          # frozen one.  lk2nd needs no local patches: board differences live
+          # in the device tree, which ships inside boot.img, not in the
+          # bootloader.  Recorded in the log so a bad build can be traced
+          # back to the exact upstream state.
+          #   lk2nd      https://github.com/msm8916-mainline/lk2nd
+          #   qtestsign  https://github.com/msm8916-mainline/qtestsign
+
           git clone https://github.com/msm8916-mainline/lk2nd.git "$LK_DIR"
+          echo "=== lk2nd @ $(git -C "$LK_DIR" rev-parse HEAD) ==="
           make -C "$LK_DIR" TOOLCHAIN_PREFIX=arm-none-eabi- lk1st-msm8916
 
           git clone --depth=1 https://github.com/msm8916-mainline/qtestsign.git "$QS_DIR"
+          echo "=== qtestsign @ $(git -C "$QS_DIR" rev-parse HEAD) ==="
           pip3 install cryptography --break-system-packages --no-cache-dir
           python3 "$QS_DIR/qtestsign.py" aboot "$LK_DIR/build-lk1st-msm8916/emmc_appsboot.mbn"
 
           mkdir -p "$GITHUB_WORKSPACE/out"
           cp -L "$LK_DIR/build-lk1st-msm8916/emmc_appsboot-test-signed.mbn" "$GITHUB_WORKSPACE/out/lk1st-msm8916.mbn"
+
+          # aboot is exactly 1 MiB.  A signed lk1st that outgrows it gets
+          # silently truncated at flash time, so fail the build instead.
+          LK_SIZE=$(stat -c%s "$GITHUB_WORKSPACE/out/lk1st-msm8916.mbn")
+          echo "=== lk1st size: $LK_SIZE bytes (aboot partition = 1048576) ==="
+          if [ "$LK_SIZE" -gt 1048576 ]; then
+            echo "ERROR: lk1st does not fit in the 1 MiB aboot partition"
+            exit 1
+          fi
 
       # ==================================================================
       # 5. Build rootfs and images (ALWAYS)
@@ -106,6 +127,38 @@ jobs:
             done
           fi
 
+          # ------------------------------------------------------------------
+          # Kernel package overlay: adds msm8916-zhihe-ufi003-mb-v02.dts so the
+          # DTB is built by the kernel instead of shipping a prebuilt binary.
+          # The directory must already exist in pmaports, we only merge into it.
+          # ------------------------------------------------------------------
+          KERNEL_OVERLAY_SRC="$GITHUB_WORKSPACE/config/kernel-testing"
+          if [ -d "$KERNEL_OVERLAY_SRC" ]; then
+            echo "=== Merging local kernel overlay from $KERNEL_OVERLAY_SRC ==="
+            for kdir in "$KERNEL_OVERLAY_SRC"/*/; do
+              [ -d "$kdir" ] || continue
+              kname=$(basename "$kdir")
+              kdest="$WORK/cache_git/pmaports/device/testing/$kname"
+              if [ ! -d "$kdest" ]; then
+                echo "ERROR: kernel package $kname not found in pmaports"
+                echo "       upstream probably moved it; update UPSTREAM_PATH in"
+                echo "       scripts/pmaports/sync-kernel-apkbuild.py"
+                exit 1
+              fi
+
+              ours=$(sed -n 's/^pkgver=//p' "$kdir/APKBUILD" | head -1)
+              theirs=$(sed -n 's/^pkgver=//p' "$kdest/APKBUILD" | head -1)
+              echo "  Overlaying kernel package: $kname (ours $ours, pmaports $theirs)"
+              cp -r "$kdir"/. "$kdest"/
+
+              # Warn loudly if the overlay is pinned to an older kernel than
+              # pmaports ships, so nobody silently builds a stale kernel.
+              if [ -n "$ours" ] && [ -n "$theirs" ] && [ "$ours" != "$theirs" ]; then
+                echo "::warning::kernel overlay is on $ours but pmaports ships $theirs - run scripts/pmaports/sync-kernel-apkbuild.py"
+              fi
+            done
+          fi
+
           DEVICE_DIR="device-${DEVICE}"
           if [ ! -f "$WORK/cache_git/pmaports/device/testing/${DEVICE_DIR}/deviceinfo" ]; then
             echo "ERROR: Device overlay not found"
@@ -130,7 +183,32 @@ jobs:
             > "$HOME/.config/pmbootstrap_v3.cfg"
           cat "$HOME/.config/pmbootstrap_v3.cfg"
 
-          pmbootstrap --as-root install --password pmos --no-fde
+          # Build the patched kernel explicitly so a broken device tree fails
+          # here with a readable log instead of somewhere inside `install`.
+          # pkgrel is bumped past the binary repo version, so this really does
+          # recompile rather than pulling the published apk.
+          pmbootstrap build linux-postmarketos-qcom-msm8916
+
+          # Sanity check: the whole point of the overlay is this one file.
+          KPKG=$(find "$WORK/packages" -name "linux-postmarketos-qcom-msm8916-*.apk" 2>/dev/null | head -1)
+          if [ -z "$KPKG" ]; then
+            echo "ERROR: kernel package was not built into $WORK/packages"
+            exit 1
+          fi
+          echo "=== checking $KPKG ==="
+          if ! tar -tzf "$KPKG" | grep -q "boot/dtbs/qcom/msm8916-zhihe-ufi003-mb-v02.dtb"; then
+            echo "ERROR: built kernel package does not contain our DTB"
+            echo "       the dts patch probably failed to apply or to compile"
+            exit 1
+          fi
+          echo "=== DTB present in kernel package ==="
+
+          # --split: without it pmbootstrap emits a *disk* image (GPT with a
+          # pmos_boot and a pmos_root partition) meant to be written to a whole
+          # device.  We flash into the userdata partition instead, so we need
+          # the root filesystem on its own.  The collect step carves it out
+          # anyway, but asking for the right thing first keeps the log readable.
+          pmbootstrap --as-root install --password pmos --no-fde --split
 
           pmbootstrap --as-root shutdown
 
@@ -159,6 +237,17 @@ jobs:
             find "$WORK" -maxdepth 3 -type d 2>/dev/null | head -20
             exit 1
           fi
+
+          # --split changes what install emits; make sure boot.img is still one
+          # of the artefacts instead of finding out when someone flashes.
+          for required in boot.img lk1st-msm8916.mbn; do
+            if [ ! -f "$OUT/$required" ]; then
+              echo "ERROR: $required missing from $OUT"
+              ls -lh "$OUT"
+              exit 1
+            fi
+          done
+          echo "=== boot.img and lk1st present ==="
           
           # lk1st 已在 Step 4 中构建，直接复制
           if [ -f "$GITHUB_WORKSPACE/out/lk1st-msm8916.mbn" ]; then
@@ -176,10 +265,53 @@ jobs:
           cp "$GITHUB_WORKSPACE/flash_tools/prog_emmc_firehose_8916_gucci_peek.mbn" "$OUT/edl/"
           echo "=== edl tooling ==="
           ls -lh "$OUT/edl/"
+
+          # WinUSB 驱动安装工具。用户第一步就卡在这，别让他去外网找。
+          cp "$GITHUB_WORKSPACE/flash_tools/zadig-2.9.exe" "$OUT/"
+          echo "=== zadig ==="
+          ls -lh "$OUT/zadig-2.9.exe"
           
+          # 新 GPT 分区表（主表 + 备份 + rawprogram 参考）
+          cp "$GITHUB_WORKSPACE/config/gpt/gpt_pmos_main.bin" "$OUT/"
+          cp "$GITHUB_WORKSPACE/config/gpt/gpt_pmos_backup.bin" "$OUT/"
+          cp "$GITHUB_WORKSPACE/config/gpt/rawprogram0.xml" "$OUT/"
+          echo "=== GPT files ==="
+          ls -lh "$OUT/gpt_pmos_main.bin" "$OUT/gpt_pmos_backup.bin" "$OUT/rawprogram0.xml"
+
           # 复制中文 EDL 工具说明文档
           cp "$GITHUB_WORKSPACE/tools/edl/readme.txt" "$OUT/README_edl.txt"
-          
+
+          # A pmbootstrap disk image carries its own GPT.  Writing that into the
+          # userdata partition nests a partition table inside a partition and
+          # the kernel finds no root filesystem - the device just hangs.  Carve
+          # the root partition out so what ships is a plain ext4 filesystem.
+          # Exit code 2 means the image was already ext4 (the --split case).
+          echo "=== Normalising rootfs images ==="
+          for img in "$OUT"/*.img; do
+            [ -f "$img" ] || continue
+            case "$(basename "$img")" in boot.img) continue ;; esac
+            echo "--- $(basename "$img")"
+            set +e
+            python3 "$GITHUB_WORKSPACE/tools/carve_rootfs.py" "$img" -o "$img.rootfs"
+            rc=$?
+            set -e
+            if [ "$rc" -eq 0 ]; then
+              mv "$img.rootfs" "$img"
+            elif [ "$rc" -eq 2 ]; then
+              echo "    already a plain ext4 image"
+            else
+              echo "ERROR: cannot produce a usable rootfs from $(basename "$img")"
+              exit 1
+            fi
+          done
+
+          # edl.exe 不支持 Android sparse 格式直写；确保 rootfs 是 raw ext4
+          echo "=== Checking / converting sparse images ==="
+          for img in "$OUT"/*.img; do
+            [ -f "$img" ] || continue
+            python3 "$GITHUB_WORKSPACE/tools/sparse2raw.py" "$img"
+          done
+
           ls -lh "$OUT/"
           
           # 打包成 zip（不包含 vmlinuz，包含 readme）
@@ -222,8 +354,9 @@ jobs:
             # 1. 安装驱动 (见 ZIP 中 README_edl.txt)
             #    使用 Zadig 安装 WinUSB 驱动
             #    进入 EDL 模式: Vol Down + USB
-            # 2. 运行 .bat 脚本 (included in zip)
-            # 3. Follow script prompts / 按脚本提示操作
+            # 2. 首次刷机运行 flash_edl_original.bat（自动改 GPT + 备份 NV）
+            # 3. 后续更新运行 flash_edl_secondary.bat（只写 boot + userdata）
+            # 4. Follow script prompts / 按脚本提示操作
             ```
 
             **Using fastboot - fastboot 用法**:
@@ -235,7 +368,8 @@ jobs:
             ```
 
             ### Notes - 注记
-            - Full compile includes: rootfs, boot.img, lk1st binary, Windows .bat flashing scripts, EDL Chinese guide
+            - Full compile includes: rootfs, boot.img, lk1st binary, new GPT, Windows .bat flashing scripts, EDL Chinese guide
+            - The original flash script now automatically repartitions the eMMC (boot 32MB, userdata ~3.3GB)
             - based on postmarketOS edge channel
             - Device: 410stick-ufi003-mb-v02 (MSM8916 / UFI003-02)
 
