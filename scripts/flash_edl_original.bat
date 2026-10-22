@@ -23,10 +23,25 @@ set "BOOT=%~dp0boot.img"
 set "ROOTFS="
 set "BKDIR=%~dp0backup"
 
-rem ---- auto find rootfs image (skip boot.img) ----
-for %%f in ("%~dp0*ufi003*.img" "%~dp0*rootfs*.img" "%~dp0*.img") do (
+rem ---- auto find rootfs image ----
+rem  pmbootstrap --split emits TWO ext4 partition images:
+rem     <device>-boot.img   512 MiB, the /boot partition
+rem     <device>-root.img   the root filesystem
+rem  Only the root one belongs on userdata.  A plain "not boot.img" test
+rem  also lets "-boot.img" through, and that name sorts first, so the wrong
+rem  image would be written to userdata and the device would hang on boot
+rem  with no root filesystem.  Match the root one explicitly first, then
+rem  fall back to anything that is neither boot.img nor *-boot.img.
+set "ROOTFS="
+for %%f in ("%~dp0*-root.img") do (
+    if not defined ROOTFS if exist "%%~ff" set "ROOTFS=%%~ff"
+)
+if not defined ROOTFS for %%f in ("%~dp0*ufi003*.img" "%~dp0*rootfs*.img" "%~dp0*.img") do (
     if not defined ROOTFS if exist "%%~ff" (
-        if /i not "%%~nxf"=="boot.img" set "ROOTFS=%%~ff"
+        set "CAND=%%~nxf"
+        if /i not "!CAND!"=="boot.img" if /i not "!CAND:~-9!"=="-boot.img" (
+            set "ROOTFS=%%~ff"
+        )
     )
 )
 

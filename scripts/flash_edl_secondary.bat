@@ -20,10 +20,21 @@ for %%f in ("%~dp0edl\prog_emmc_firehose_8916.mbn" "%~dp0edl\prog_emmc_firehose_
 set "BOOT=%~dp0boot.img"
 set "ROOTFS="
 
-rem ---- auto find rootfs image (skip boot.img) ----
-for %%f in ("%~dp0*ufi003*.img" "%~dp0*rootfs*.img" "%~dp0*.img") do (
+rem ---- auto find rootfs image ----
+rem  --split emits <device>-boot.img (the 512 MiB /boot partition) next to
+rem  <device>-root.img.  Both end in .img, and "-boot.img" sorts first, so
+rem  excluding only the literal name "boot.img" would put the /boot
+rem  partition on userdata.  Prefer the root image by name.
+set "ROOTFS="
+for %%f in ("%~dp0*-root.img") do (
+    if not defined ROOTFS if exist "%%~ff" set "ROOTFS=%%~ff"
+)
+if not defined ROOTFS for %%f in ("%~dp0*ufi003*.img" "%~dp0*rootfs*.img" "%~dp0*.img") do (
     if not defined ROOTFS if exist "%%~ff" (
-        if /i not "%%~nxf"=="boot.img" set "ROOTFS=%%~ff"
+        set "CAND=%%~nxf"
+        if /i not "!CAND!"=="boot.img" if /i not "!CAND:~-9!"=="-boot.img" (
+            set "ROOTFS=%%~ff"
+        )
     )
 )
 

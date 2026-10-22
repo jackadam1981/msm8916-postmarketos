@@ -230,6 +230,25 @@ jobs:
             cp -L "$f" "$OUT/" 2>/dev/null || true
           done
 
+          # pmbootstrap --split also emits <device>-boot.img: the 512 MiB ext4
+          # /boot partition.  Nothing flashes it - kernel and initramfs travel
+          # inside the 23 MiB Android boot.img that goes to the 32 MiB boot
+          # partition - and its name collides with the flash scripts' rootfs
+          # glob, where "-boot.img" sorts before "-root.img", so the /boot
+          # partition could end up written to userdata.  Drop it here.
+          for f in "$OUT"/*-boot.img; do
+            [ -e "$f" ] || continue
+            echo "=== dropping $(basename "$f") (ext4 /boot partition, unused) ==="
+            rm -f "$f"
+          done
+
+          # The root filesystem is the whole point of the archive.
+          if ! ls "$OUT"/*-root.img >/dev/null 2>&1; then
+            echo "ERROR: no *-root.img in $OUT - --split did not produce one"
+            ls -lh "$OUT"
+            exit 1
+          fi
+
           IMG_COUNT=$(find "$OUT" -maxdepth 1 -name "*.img" | wc -l)
           echo "=== Collected $IMG_COUNT image(s) ==="
           if [ "$IMG_COUNT" -eq 0 ]; then
