@@ -33,3 +33,6 @@ log.txt
 *.dts.tmp
 # 原厂固件里提取的 DTB 是证据文件，不是编译产物，必须入库
 !docs/bringup/**/vendor-*.dtb
+# 刷机包要发的分区表也是构建输入，不是产物：CI 会把它们拷进 zip，
+# 缺了这两个文件 pmos-build 的打包步骤会直接 cp 失败
+!config/gpt/*.bin
