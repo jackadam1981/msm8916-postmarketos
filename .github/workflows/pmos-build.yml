@@ -267,6 +267,19 @@ jobs:
             fi
           done
           echo "=== boot.img and lk1st present ==="
+
+          # The apk check in the build step only proves the dtb got compiled.
+          # This proves it reached the image that actually gets flashed:
+          # deviceinfo_append_dtb glues the blob onto the kernel, so it lives
+          # in the kernel region and nowhere else.  Same assertions the
+          # dt-verify workflow runs, on the real artefact.
+          DTBTMP=$(mktemp -d)
+          python3 "$GITHUB_WORKSPACE/tools/dtb/bootimg_dtb.py" extract "$OUT/boot.img" \
+            -o "$DTBTMP" -n board.dtb
+          python3 "$GITHUB_WORKSPACE/tools/dtb/verify_dtb.py" "$DTBTMP/board.dtb"
+          echo "=== dtb in boot.img: $(stat -c%s "$DTBTMP/board.dtb") bytes ==="
+          sha256sum "$DTBTMP/board.dtb"
+          rm -rf "$DTBTMP"
           
           # lk1st 已在 Step 4 中构建，直接复制
           if [ -f "$GITHUB_WORKSPACE/out/lk1st-msm8916.mbn" ]; then
