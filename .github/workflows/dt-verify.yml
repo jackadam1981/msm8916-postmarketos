@@ -83,7 +83,7 @@ jobs:
             https://github.com/msm8916-mainline/linux.git "$K"
 
           git -C "$K" sparse-checkout set \
-            arch/arm64/boot/dts include/dt-bindings
+            arch/arm64/boot/dts include
 
           echo "=== $(git -C "$K" rev-parse HEAD) ($TAG) ==="
           ls "$K/arch/arm64/boot/dts/qcom" | grep -c . | xargs echo "qcom dts files:"
@@ -102,7 +102,7 @@ jobs:
           # has already changed directory.
           PATCH_ABS="$GITHUB_WORKSPACE/$PATCH"
 
-          if git -C "$K" apply -v "$PATCH"; then
+          if git -C "$K" apply -v "$PATCH_ABS"; then
             echo "=== patch applied with git apply ==="
           else
             echo "::warning::git apply failed, retrying with patch -p1 -F3"
