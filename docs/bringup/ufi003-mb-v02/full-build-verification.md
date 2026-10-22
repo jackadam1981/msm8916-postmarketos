@@ -18,6 +18,16 @@
 | rootfs | 802,160,640 B，纯 ext4，无嵌套 GPT |
 | Release | `v2024.08-msm8916-full`，zip 281,833,945 B |
 
+后续又跑了两轮把打包问题修掉、把 dtb 检查搬进 CI，最终产物：
+
+| 项目 | 值 |
+|---|---|
+| CI run | `39792826706`，commit `a913dc6e`，34 分钟 |
+| zip | **221,634,578 B**（比首版小 60 MB，去掉了 512 MiB /boot 镜像） |
+| 包内文件 | 15 项，无 `*-boot.img` |
+| dtb 自检 | 50,361 B / 443 节点 / 19 项断言 / sha256 `9666422f...` |
+
+
 ## 怎么确认内核真的重编了
 
 `pkgrel` 从 8 bump 到 9，高于二进制仓库里的版本，所以 `pmbootstrap build`
@@ -101,6 +111,25 @@ if /i not "%%~nxf"=="boot.img" set "ROOTFS=%%~ff"
 写进 32 MiB 的 boot 分区。它留在 zip 里既占地方，又是上面那个 bug 的成因。
 `pmos-build.yml` 的打包步骤现在直接删掉它，并且要求 `*-root.img` 必须存在，
 否则 fail。
+
+## 构建时自检（2026-10-22 起）
+
+`pmos-build.yml` 的打包步骤现在自己会做这件事，日志里直接能看到：
+
+```
+=== dropping 410stick-ufi003-mb-v02-boot.img (ext4 /boot partition, unused) ===
+=== Collected 2 image(s) ===
+wrote /tmp/tmp.XXXX/board.dtb  50,361 bytes  (kernel+9,283,821)
+# /tmp/tmp.XXXX/board.dtb: 50361 bytes, 443 nodes
+OK: 19 board-specific assertions passed
+=== dtb in boot.img: 50361 bytes ===
+9666422fb636bc8de9deb03c258e45b3fe46e30aab8bf519db99a27d0b2c742f
+```
+
+所以以后对比两次发布，看日志里的 sha256 就够，不用下 200 MB 的包。
+
+dtb 在 kernel 里的偏移每次会差几个字节（`9,283,821` vs `9,283,832`），因为内核
+Image 本身带构建时间戳、大小会浮动；dtb 内容不变，所以 sha256 稳定。
 
 ## 怎么复现这套验证
 
